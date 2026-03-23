@@ -513,14 +513,11 @@ static void build_palette(const void* tlut_data, int tlut_fmt, int n_entries,
             decode_rgb565_entry(val, &palette[i][0], &palette[i][1],
                                 &palette[i][2], &palette[i][3]);
         } else { /* GX_TL_IA8: high byte = intensity, low byte = alpha */
-            if (is_be) {
-                palette[i][0] = palette[i][1] = palette[i][2] = (u8)(val >> 8);
-                palette[i][3] = (u8)(val & 0xFF);
-            } else {
-                /* LE read of BE bytes [I,A] swaps them */
-                palette[i][0] = palette[i][1] = palette[i][2] = (u8)(val & 0xFF);
-                palette[i][3] = (u8)(val >> 8);
-            }
+            /* val is [I, A] in Big Endian. On Little Endian:
+             * - is_be=1: read_be16 on [A, I] -> 0xAAII -> I is low, A is high.
+             * - is_be=0: pal16[i] on [A, I] -> 0xIIAA -> I is high, A is low. */
+            palette[i][0] = palette[i][1] = palette[i][2] = (u8)(val >> 8);
+            palette[i][3] = (u8)(val & 0xFF);
         }
     }
 }
@@ -860,7 +857,15 @@ void GXLoadTlut(void* obj, u32 idx) {
     g_gx.tlut[idx].data = (const void*)o->data;
     g_gx.tlut[idx].format = (int)o->format;
     g_gx.tlut[idx].n_entries = (int)o->n_entries;
-    g_gx.tlut[idx].is_be = 1; /* default to BE (ROM/JSystem data) */
+
+    /* Default to BE (ROM assets). If the address is in the EXE image range,
+     * it's a native C-defined array (LE on Little-Endian PCs). */
+    uintptr_t addr = (uintptr_t)o->data;
+    if (addr >= pc_image_base && addr < pc_image_end) {
+        g_gx.tlut[idx].is_be = 0;
+    } else {
+        g_gx.tlut[idx].is_be = 1;
+    }
 }
 
 /* PC_GX_TLUT_MODE env var: "be" forces BE decode for diagnostics */
