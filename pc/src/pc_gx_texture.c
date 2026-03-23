@@ -301,7 +301,7 @@ static void decode_I8(const u8* src, u8* dst, int w, int h) {
     }
 }
 
-/* IA4: 8x4 blocks, high nibble = alpha, low nibble = intensity */
+/* IA4: 8x4 blocks, high nibble = intensity, low nibble = alpha */
 static void decode_IA4(const u8* src, u8* dst, int w, int h) {
     int bw = (w + 7) / 8, bh = (h + 3) / 4;
     for (int by = 0; by < bh; by++) {
@@ -311,8 +311,8 @@ static void decode_IA4(const u8* src, u8* dst, int w, int h) {
                     u8 val = *src++;
                     int px = bx * 8 + x, py = by * 4 + y;
                     if (px < w && py < h) {
-                        u8 a = (val >> 4) | (val & 0xF0);
-                        u8 i = (val & 0x0F) | ((val & 0x0F) << 4);
+                        u8 i = (val >> 4) | (val & 0xF0);
+                        u8 a = (val & 0x0F) | ((val & 0x0F) << 4);
                         int idx = (py * w + px) * 4;
                         dst[idx] = dst[idx+1] = dst[idx+2] = i; dst[idx+3] = a;
                     }
@@ -322,15 +322,15 @@ static void decode_IA4(const u8* src, u8* dst, int w, int h) {
     }
 }
 
-/* IA8: 4x4 blocks, 16bpp, alpha byte + intensity byte per pixel */
+/* IA8: 4x4 blocks, 16bpp, intensity byte + alpha byte per pixel */
 static void decode_IA8(const u8* src, u8* dst, int w, int h) {
     int bw = (w + 3) / 4, bh = (h + 3) / 4;
     for (int by = 0; by < bh; by++) {
         for (int bx = 0; bx < bw; bx++) {
             for (int y = 0; y < 4; y++) {
                 for (int x = 0; x < 4; x++) {
-                    u8 a = *src++;
                     u8 i = *src++;
+                    u8 a = *src++;
                     int px = bx * 4 + x, py = by * 4 + y;
                     if (px < w && py < h) {
                         int idx = (py * w + px) * 4;
