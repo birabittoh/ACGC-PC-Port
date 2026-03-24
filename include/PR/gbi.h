@@ -1159,7 +1159,7 @@ typedef struct {
  * First 8 words are integer portion of the 4x4 matrix
  * Last 8 words are the fraction portion of the 4x4 matrix
  */
-typedef long	Mtx_t[4][4];
+typedef s32_compat	Mtx_t[4][4];
 
 typedef union {
     Mtx_t		m;
@@ -1447,7 +1447,7 @@ typedef struct {
 
 typedef union {
     Hilite_t	h;
-    long int	force_structure_alignment[4];
+    long long int	force_structure_alignment[2];
 } Hilite;
 
 #define gdSPDefLights0(ar,ag,ab)					\
@@ -1712,7 +1712,7 @@ typedef struct {
 		unsigned int	prim_min_level:8;
 		unsigned int	pad:8;
 		int		cmd:8;
-		unsigned long	color;
+		u32_compat	color;
 } Gsetcolor;
 #else
 typedef struct {
@@ -1720,7 +1720,7 @@ typedef struct {
 		unsigned char	pad;
 		unsigned char	prim_min_level;
 		unsigned char	prim_level;
-		unsigned long	color;
+		u32_compat	color;
 } Gsetcolor;
 #endif
 
@@ -1859,10 +1859,10 @@ typedef struct {
  * Textured rectangles are 128 bits not 64 bits
  */	
 typedef struct {
-    unsigned long w0;
-    unsigned long w1;
-    unsigned long w2;
-    unsigned long w3;
+    u32_compat w0;
+    u32_compat w1;
+    u32_compat w2;
+    u32_compat w3;
 } TexRect;
 
 /*

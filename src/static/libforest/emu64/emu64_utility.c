@@ -27,6 +27,11 @@ uintptr_t emu64::seg2k0(uintptr_t segadr) {
     /* Zero — can't recover */
     if (segadr == 0) return 0;
 
+    /* If the address is within the executable image, it's a native pointer */
+    if (segadr >= pc_image_base && segadr < pc_image_end) {
+        return segadr;
+    }
+
     /* Try N64 segment resolution first (0x03-0x0F range) */
     if (segadr >= 0x03000000u && segadr <= 0x0FFFFFFFu) {
         uintptr_t seg = (segadr >> 24) & 0xF;

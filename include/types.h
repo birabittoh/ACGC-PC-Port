@@ -44,12 +44,16 @@ typedef signed short s16;
 #include <stdint.h>
 typedef int32_t  s32;
 typedef uint32_t u32;
+typedef int32_t  s32_compat;
+typedef uint32_t u32_compat;
 typedef int64_t  s64;
 typedef uint64_t u64;
 #include <stddef.h>
 #else
 typedef signed long s32;
 typedef unsigned long u32;
+typedef signed long s32_compat;
+typedef unsigned long u32_compat;
 #ifndef _SIZE_T_DEF
 #define _SIZE_T_DEF
 typedef unsigned long size_t;

@@ -860,7 +860,14 @@ void GXLoadTlut(void* obj, u32 idx) {
     g_gx.tlut[idx].data = (const void*)o->data;
     g_gx.tlut[idx].format = (int)o->format;
     g_gx.tlut[idx].n_entries = (int)o->n_entries;
-    g_gx.tlut[idx].is_be = 1; /* default to BE (ROM/JSystem data) */
+
+    /* Detect if the TLUT is in the executable (native) or ROM (BE) */
+    uintptr_t addr = (uintptr_t)o->data;
+    if (addr >= pc_image_base && addr < pc_image_end) {
+        g_gx.tlut[idx].is_be = 0;
+    } else {
+        g_gx.tlut[idx].is_be = 1;
+    }
 }
 
 /* PC_GX_TLUT_MODE env var: "be" forces BE decode for diagnostics */
