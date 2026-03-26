@@ -6,9 +6,11 @@ set(CMAKE_SYSTEM_PROCESSOR i686)
 set(CMAKE_C_COMPILER gcc)
 set(CMAKE_CXX_COMPILER g++)
 
-# Force 32-bit compilation
-set(CMAKE_C_FLAGS "-m32" CACHE STRING "")
-set(CMAKE_CXX_FLAGS "-m32" CACHE STRING "")
+# Force 32-bit compilation. Enable SSE2 for floating point to ensure consistency
+# with 64-bit and Windows builds, avoiding x87 excess precision issues that cause
+# animation "twitching" and camera positioning bugs.
+set(CMAKE_C_FLAGS "-m32 -msse2 -mfpmath=sse" CACHE STRING "")
+set(CMAKE_CXX_FLAGS "-m32 -msse2 -mfpmath=sse" CACHE STRING "")
 set(CMAKE_EXE_LINKER_FLAGS "-m32" CACHE STRING "")
 set(CMAKE_SHARED_LINKER_FLAGS "-m32" CACHE STRING "")
 
