@@ -43,21 +43,24 @@
 typedef unsigned char       u8;
 typedef unsigned short      u16;
 typedef uint32_t            u32;
-typedef uint64_t            u64;
+/* On 32-bit Linux, uint64_t is 4-byte aligned by default.
+ * Force 8-byte alignment to match GameCube and 64-bit PC layouts. */
+typedef uint64_t            u64 __attribute__((aligned(8)));
 typedef signed char         s8;
 typedef short               s16;
 typedef int32_t             s32;
-typedef int64_t             s64;
+typedef int64_t             s64 __attribute__((aligned(8)));
 typedef volatile unsigned char      vu8;
 typedef volatile unsigned short     vu16;
 typedef volatile uint32_t           vu32;
-typedef volatile uint64_t           vu64;
+typedef volatile uint64_t           vu64 __attribute__((aligned(8)));
 typedef volatile signed char        vs8;
 typedef volatile short              vs16;
 typedef volatile int32_t            vs32;
-typedef volatile int64_t            vs64;
+typedef volatile int64_t            vs64 __attribute__((aligned(8)));
 typedef float   f32;
-typedef double  f64;
+/* Match s64/u64 alignment on 32-bit Linux. */
+typedef double  f64 __attribute__((aligned(8)));
 #endif /* _DOLPHIN_TYPES_H_ */
 #else
 /* N64/GC original types */
@@ -84,6 +87,16 @@ typedef volatile long long          vs64;   /* signed 64-bit */
 typedef float   f32;    /* single prec floating point */
 typedef double  f64;    /* double prec floating point */
 #endif /* TARGET_PC */
+
+#ifndef ATTRIBUTE_ALIGN
+#if defined(__MWERKS__) || defined(__GNUC__)
+#define ATTRIBUTE_ALIGN(num) __attribute__((aligned(num)))
+#elif defined(_MSC_VER)
+#define ATTRIBUTE_ALIGN(num) __declspec(align(num))
+#else
+#define ATTRIBUTE_ALIGN(num)
+#endif
+#endif
 
 #ifndef TARGET_PC
 #if !defined(_SIZE_T) && !defined(_SIZE_T_) && !defined(_SIZE_T_DEF)

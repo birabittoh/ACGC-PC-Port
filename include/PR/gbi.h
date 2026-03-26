@@ -1112,7 +1112,7 @@ typedef struct {
 	unsigned char   a;      /* alpha  */
 } Vtx_tn;
 
-typedef union {
+typedef union ATTRIBUTE_ALIGN(8) {
     Vtx_t		v;  /* Use this one for colors  */
     Vtx_tn              n;  /* Use this one for normals */
     long long int	force_structure_alignment;
@@ -1161,7 +1161,7 @@ typedef struct {
  */
 typedef s32_compat	Mtx_t[4][4];
 
-typedef union {
+typedef union ATTRIBUTE_ALIGN(8) {
     Mtx_t		m;
     long long int	force_structure_alignment;
 } Mtx;
@@ -1206,7 +1206,7 @@ typedef struct {
 	/* both the above arrays are padded to 64-bit boundary */
 } Vp_t;
 
-typedef union {
+typedef union ATTRIBUTE_ALIGN(8) {
     Vp_t		vp;
     long long int	force_structure_alignment;
 } Vp;
@@ -1386,12 +1386,12 @@ typedef struct {
   int		x1,y1,x2,y2;	/* texture offsets for highlight 1/2 */
 } Hilite_t;
 
-typedef union {
+typedef union ATTRIBUTE_ALIGN(8) {
     Light_t	l;
     long long int	force_structure_alignment[2];
 } Light;
 
-typedef union {
+typedef union ATTRIBUTE_ALIGN(8) {
     Ambient_t	l;
     long long int	force_structure_alignment[1];
 } Ambient;
@@ -1445,7 +1445,7 @@ typedef struct {
     Light	l[2];
 } LookAt;
 
-typedef union {
+typedef union ATTRIBUTE_ALIGN(8) {
     Hilite_t	h;
     long long int	force_structure_alignment[2];
 } Hilite;
@@ -1889,7 +1889,7 @@ typedef struct {
  * Originally 64 bits; on 64-bit PC it is 128 bits (16 bytes) because
  * Gwords.w1 is uintptr_t to hold full 64-bit pointers.
  */
-typedef union {
+typedef union ATTRIBUTE_ALIGN(8) {
 	Gwords		words;
 	Gdma		dma;
 	Gtri		tri;

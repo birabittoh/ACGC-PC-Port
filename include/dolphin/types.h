@@ -9,8 +9,10 @@ typedef unsigned short int     u16;
 #include <stdint.h>
 typedef int32_t                s32;
 typedef uint32_t               u32;
-typedef int64_t                s64;
-typedef uint64_t               u64;
+/* On 32-bit Linux, s64/u64 are 4-byte aligned by default.
+ * Force 8-byte alignment to match GameCube and 64-bit PC layouts. */
+typedef int64_t                s64 __attribute__((aligned(8)));
+typedef uint64_t               u64 __attribute__((aligned(8)));
 #else
 typedef signed   long          s32;
 typedef unsigned long          u32;
@@ -19,7 +21,12 @@ typedef unsigned long long int u64;
 #endif
 
 typedef float  f32;
+/* Match s64/u64 alignment on 32-bit Linux. */
+#ifdef TARGET_PC
+typedef double f64 __attribute__((aligned(8)));
+#else
 typedef double f64;
+#endif
 
 typedef char *Ptr;
 #ifndef TARGET_PC

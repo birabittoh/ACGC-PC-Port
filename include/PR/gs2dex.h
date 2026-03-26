@@ -104,7 +104,7 @@ typedef	struct	{
   
 } uObjScaleBg_t;	/* 40 bytes */
 
-typedef union {
+typedef union ATTRIBUTE_ALIGN(8) {
   uObjBg_t        b;
   uObjScaleBg_t   s;
   long long int   force_structure_alignment;
@@ -133,7 +133,7 @@ typedef struct {
   u8   imageFlags;	/* The display flag - G_OBJ_FLAG_FLIP* */
 } uObjSprite_t;		/* 24 bytes */
 
-typedef union {
+typedef union ATTRIBUTE_ALIGN(8) {
   uObjSprite_t      s;
   long long int   force_structure_alignment;
 } uObjSprite;
@@ -148,7 +148,7 @@ typedef struct {
   u16   BaseScaleY;	/* u5.10  */
 } uObjMtx_t;		/* 24 bytes */
 
-typedef union {
+typedef union ATTRIBUTE_ALIGN(8) {
   uObjMtx_t	m;
   long long int force_structure_alignment;
 } uObjMtx;
@@ -159,7 +159,7 @@ typedef struct {
   u16   BaseScaleY;	/* u5.10  */
 } uObjSubMtx_t;		/* 8 bytes */
 
-typedef union {
+typedef union ATTRIBUTE_ALIGN(8) {
   uObjSubMtx_t	m;
   long long int force_structure_alignment;
 } uObjSubMtx;
@@ -213,7 +213,7 @@ typedef	struct	{
   u32	mask;		/* STATE mask  */
 } uObjTxtrTLUT_t;		/* 24 bytes */
 
-typedef union {
+typedef union ATTRIBUTE_ALIGN(8) {
   uObjTxtrBlock_t      block;
   uObjTxtrTile_t       tile;
   uObjTxtrTLUT_t       tlut;
