@@ -342,13 +342,6 @@ int main(int argc, char* argv[]) {
     const char* wayland_display = getenv("WAYLAND_DISPLAY");
     const char* x11_display = getenv("DISPLAY");
 
-#if UINTPTR_MAX <= 0xFFFFFFFFu
-    /* On 32-bit Linux, Wayland/EGL often fails to load discrete drivers (lib32-nvidia-utils).
-     * We default to X11 (XWayland) for stability, but allow user override via SDL_VIDEODRIVER. */
-    if (wayland_display != NULL && x11_display != NULL) {
-        setenv("SDL_VIDEODRIVER", "x11", 0);
-    }
-#endif
 
     const char* sdl_vid_drv = getenv("SDL_VIDEODRIVER");
     if (sdl_vid_drv != NULL && strcmp(sdl_vid_drv, "x11") == 0) {
