@@ -12,7 +12,7 @@ typedef long long int Mtx_t[4][2];
 typedef union {
     Mtx_t m;
     long long int forc_align;
-} Mtx;
+} Mtx ATTRIBUTE_ALIGN(8);
 
 #define FTOFIX32(x) (long)((x) * (float)0x00010000)
 

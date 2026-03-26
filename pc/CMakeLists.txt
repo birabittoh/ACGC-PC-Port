@@ -131,6 +131,9 @@ message(STATUS "SDL2 libraries: ${SDL2_LIBRARIES}")
 # Fix SDL2 target for 32-bit Linux multilib builds
 if(UNIX AND NOT APPLE AND CMAKE_SIZEOF_VOID_P EQUAL 4)
     include(cmake/FixSDL2-i686.cmake)
+
+    # Enforce SSE2 math on 32-bit Linux to avoid x87 precision "twitching" in animations
+    add_compile_options(-msse2 -mfpmath=sse)
 endif()
 
 # =============================================================================

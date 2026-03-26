@@ -235,7 +235,7 @@ typedef union {
         Amixer		mixer;
         Asetloop        setloop;
         long long int	force_union_align;	/* dummy, force alignment */
-} Acmd;
+} Acmd ATTRIBUTE_ALIGN(8);
 
 /*
  * ADPCM State

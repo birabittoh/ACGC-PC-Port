@@ -1013,7 +1013,7 @@ typedef union {
     Light_t l;
     Light_pos_t p;
     long long int force_align[2];
-} Light_new;
+} Light_new ATTRIBUTE_ALIGN(8);
 
 /* Combiner Structs */
 typedef struct {

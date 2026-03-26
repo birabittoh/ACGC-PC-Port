@@ -1116,7 +1116,7 @@ typedef union {
     Vtx_t		v;  /* Use this one for colors  */
     Vtx_tn              n;  /* Use this one for normals */
     long long int	force_structure_alignment;
-} Vtx;
+} Vtx ATTRIBUTE_ALIGN(8);
 
 /*
  * Sprite structure
@@ -1144,7 +1144,7 @@ typedef union {
 
   /* Need to make sure this is 64 bit aligned */   
   long long int         force_structure_allignment[3];
-} uSprite;
+} uSprite ATTRIBUTE_ALIGN(8);
 
 /*
  * Triangle face
