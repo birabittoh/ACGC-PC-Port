@@ -333,14 +333,14 @@ extern int boot_main(int argc, const char** argv);
 
 int main(int argc, char* argv[]) {
 #ifndef _WIN32
-    /* prefer discrete GPU on Linux (NVIDIA PRIME and AMD) */
-    setenv("__NV_PRIME_RENDER_OFFLOAD", "1", 1);
-    setenv("__GLX_VENDOR_LIBRARY_NAME", "nvidia", 1);
-    setenv("__VK_LAYER_NV_optimus", "NVIDIA_only", 1);
-    setenv("DRI_PRIME", "1", 1);
+    /* prefer discrete GPU on Linux (NVIDIA PRIME and AMD) — respect user environment */
+    setenv("__NV_PRIME_RENDER_OFFLOAD", "1", 0);
+    setenv("__GLX_VENDOR_LIBRARY_NAME", "nvidia", 0);
+    setenv("__VK_LAYER_NV_optimus", "NVIDIA_only", 0);
+    setenv("DRI_PRIME", "1", 0);
     if (getenv("DISPLAY") != NULL) {
         /* prefer GLX to prevent EGL fallback issues on some discrete drivers */
-        setenv("SDL_VIDEO_GL_DRIVER", "libGL.so.1", 1);
+        setenv("SDL_VIDEO_GL_DRIVER", "libGL.so.1", 0);
     }
 #endif
 
