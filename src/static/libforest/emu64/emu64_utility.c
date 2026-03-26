@@ -71,12 +71,21 @@ uintptr_t emu64::seg2k0(uintptr_t segadr) {
  * 0x03-0x0F range). On Windows, use VirtualQuery + page cache to
  * disambiguate. On other platforms, rely on segment table and image range. */
 
-#ifdef _WIN32
-/* Page-granularity cache for VirtualQuery results.
+#if defined(_WIN32) || defined(__linux__)
+/* Page-granularity cache for VirtualQuery/mincore results.
  * Avoids repeated syscalls for addresses in the same page. */
 #define SEG2K0_PAGE_CACHE_SIZE 32
-static struct { u32 page; u8 committed; } seg2k0_page_cache[SEG2K0_PAGE_CACHE_SIZE];
+static struct {
+    u32 page;
+    u8 committed;
+} seg2k0_page_cache[SEG2K0_PAGE_CACHE_SIZE];
 static int seg2k0_cache_next = 0;
+
+#ifdef __linux__
+#include <errno.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
 
 static int seg2k0_is_committed(u32 addr) {
     u32 page = addr & ~0xFFF;
@@ -85,17 +94,25 @@ static int seg2k0_is_committed(u32 addr) {
             return seg2k0_page_cache[i].committed;
         }
     }
-    MEMORY_BASIC_INFORMATION mbi;
     int committed = 0;
+#ifdef _WIN32
+    MEMORY_BASIC_INFORMATION mbi;
     if (VirtualQuery((void*)(uintptr_t)addr, &mbi, sizeof(mbi)) > 0 && mbi.State == MEM_COMMIT) {
         committed = 1;
     }
+#elif defined(__linux__)
+    unsigned char vec;
+    /* mincore() returns 0 if the page is mapped, or -1 with errno=ENOMEM if it's not. */
+    if (mincore((void*)(uintptr_t)page, 4096, &vec) == 0) {
+        committed = 1;
+    }
+#endif
     seg2k0_page_cache[seg2k0_cache_next].page = page;
     seg2k0_page_cache[seg2k0_cache_next].committed = committed;
     seg2k0_cache_next = (seg2k0_cache_next + 1) % SEG2K0_PAGE_CACHE_SIZE;
     return committed;
 }
-#endif /* _WIN32 */
+#endif /* _WIN32 || __linux__ */
 
 uintptr_t emu64::seg2k0(uintptr_t segadr) {
     if ((segadr >> 28) != 0 || segadr < 0x03000000) {
@@ -122,7 +139,7 @@ uintptr_t emu64::seg2k0(uintptr_t segadr) {
 
     uintptr_t resolved = this->segments[seg] + offset;
 
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__linux__)
     /* Real N64 segment addresses come from GBI macros like SEGMENT_ADDR(seg, offset)
        and always have small offsets (textures, matrices that are never > 512KB).
        PC heap pointers that collide with the segment range have large "offsets"
@@ -148,7 +165,7 @@ uintptr_t emu64::seg2k0(uintptr_t segadr) {
     if (seg2k0_is_committed((u32)segadr)) {
         return segadr;
     }
-#endif /* _WIN32 */
+#endif /* _WIN32 || __linux__ */
 
     this->resolved_addresses++;
     return resolved;
