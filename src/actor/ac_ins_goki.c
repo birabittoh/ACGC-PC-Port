@@ -42,8 +42,13 @@ enum {
 #define aIGK_TARGET_ANGLE(insect) ((insect)->s32_work0)
 #define aIGK_CHANGE_WAIT_TIMER(insect) ((insect)->s32_work1)
 #define aIGK_MOVE_TIMER(insect) ((insect)->s32_work2)
+#ifdef TARGET_PC
+#define aIGK_GET_ITEM_P(insect) (mFI_GetUnitFG(insect->tools_actor.actor_class.home.position))
+#define aIGK_SET_ITEM_P(insect, item_p)
+#else
 #define aIGK_GET_ITEM_P(insect) ((insect)->s32_work3)
 #define aIGK_SET_ITEM_P(insect, item_p) ((insect)->s32_work3 = (int)item_p)
+#endif
 
 static void aIGK_actor_move(ACTOR* actorx, GAME* game);
 static void aIGK_setupAction(aINS_INSECT_ACTOR* insect, int action, GAME* game);
