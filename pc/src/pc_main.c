@@ -187,10 +187,15 @@ void pc_platform_init(void) {
     {
         const char* renderer = (const char*)glGetString(GL_RENDERER);
         if (renderer && (strstr(renderer, "llvmpipe") || strstr(renderer, "softpipe"))) {
+            const char* sdl_driver = SDL_GetCurrentVideoDriver();
             fprintf(stderr, "\n--- WARNING ---\n"
                             "Game is running on software renderer (llvmpipe/softpipe).\n"
-                            "This likely means 32-bit graphics drivers are missing on your system.\n"
-                            "----------------\n\n");
+                            "This likely means 32-bit graphics drivers are missing on your system.\n");
+            if (sdl_driver && strcmp(sdl_driver, "wayland") == 0) {
+                fprintf(stderr, "On Wayland, ensure you have lib32-egl-wayland installed.\n"
+                                "Alternatively, try running with: SDL_VIDEODRIVER=x11\n");
+            }
+            fprintf(stderr, "----------------\n\n");
         }
     }
 #endif
@@ -336,6 +341,9 @@ int main(int argc, char* argv[]) {
     /* prefer discrete GPU on Linux (NVIDIA PRIME and AMD) while respecting user overrides */
     setenv("__NV_PRIME_RENDER_OFFLOAD", "1", 0);
     setenv("__GLX_VENDOR_LIBRARY_NAME", "nvidia", 0);
+    setenv("__EGL_VENDOR_LIBRARY_NAME", "nvidia", 0); /* Fix for 32-bit Wayland/EGL on NVIDIA */
+    /* Help EGL loader find driver on some systems where standard paths are ignored in 32-bit */
+    setenv("__EGL_VENDOR_LIBRARY_FILENAMES", "10_nvidia.json", 0);
     setenv("__VK_LAYER_NV_optimus", "NVIDIA_only", 0);
     setenv("DRI_PRIME", "1", 0);
 
