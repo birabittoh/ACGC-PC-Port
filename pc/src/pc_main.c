@@ -170,6 +170,12 @@ void pc_platform_init(void) {
         exit(1);
     }
 
+    if (g_pc_verbose) {
+        printf("[GL] Vendor:   %s\n", (const char*)glGetString(GL_VENDOR));
+        printf("[GL] Renderer: %s\n", (const char*)glGetString(GL_RENDERER));
+        printf("[GL] Version:  %s\n", (const char*)glGetString(GL_VERSION));
+    }
+
     SDL_GL_SetSwapInterval(g_pc_settings.vsync);
 
     pc_platform_update_window_size();
