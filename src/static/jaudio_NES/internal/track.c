@@ -1439,7 +1439,7 @@ static void Nas_SubSeq(sub* subtrack) {
                                 break;
                             case SUBTRACK_CMD_MACRO_LOAD_FROM_GROUP_SEQ: // load macro register value from table
                                 cmdArgU16 = (u16)cmdArgs[0];
-                                m->value = grp->seq_data[(u32)(cmdArgU16 + m->value)];
+                                m->value = grp->seq_data[(uintptr_t)(cmdArgU16 + m->value)];
                                 break;
                             case SUBTRACK_CMD_SET_DYNVAL: // set stored sequence data index
                                 cmdArgU16 = (u16)cmdArgs[0];
@@ -1978,7 +1978,7 @@ static void Nas_GroupSeq(group* grp) {
                             case GRP_CMD_DYN_TBL_CALL: // dynamic look-up table call
                                 temp = Nas_ReadWordData(m);
                                 if (m->value != -1 && m->depth != 3) {
-                                    data1 = &grp->seq_data[(u32)(temp + (m->value << 1))];
+                                    data1 = &grp->seq_data[(uintptr_t)(temp + (m->value << 1))];
                                     m->stack[m->depth++] = m->pc;
                                     temp = (data1[0] << 8) + data1[1];
                                     m->pc = &grp->seq_data[temp];
@@ -2002,7 +2002,7 @@ static void Nas_GroupSeq(group* grp) {
                             case GRP_CMD_DYNAMIC_BRANCH: // dynamic lookup branch (no return)
                                 temp = Nas_ReadWordData(m);
                                 if (m->value != -1) {
-                                    data4 = &grp->seq_data[(u32)(temp + (m->value << 1))];
+                                    data4 = &grp->seq_data[(uintptr_t)(temp + (m->value << 1))];
                                     temp = (data4[0] << 8) + data4[1];
                                     m->pc = &grp->seq_data[temp];
                                 }

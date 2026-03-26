@@ -124,6 +124,15 @@ extern "C" {
     _a->words.w1 = _SHIFTL(l, 16, 16) | _SHIFTL(r, 0, 16);          \
 }
 
+#ifdef TARGET_PC
+#define	aSetEnvParam2(pkt, volL, volR)						\
+{									\
+	Acmd *_a = (Acmd *)pkt;						\
+									\
+	_a->words.w0 = _SHIFTL(A_CMD_SETENVPARAM2, 24, 8);    		\
+	_a->words.w1 = _SHIFTL(volL, 16, 16) | ((u16)volR);		\
+}
+#else
 #define	aSetEnvParam2(pkt, volL, volR)						\
 {									\
 	Acmd *_a = (Acmd *)pkt;						\
@@ -131,13 +140,14 @@ extern "C" {
 	_a->words.w0 = _SHIFTL(A_CMD_SETENVPARAM2, 24, 8);    		\
 	_a->words.w1 = _SHIFTL(volL, 16, 16) | _SHIFTL(volR, 0, 16);		\
 }
+#endif
 
 #define aPCM8dec(pkt, flags, state)						\
 {									\
 	Acmd *_a = (Acmd *)pkt;						\
 									\
 	_a->words.w0 = _SHIFTL(A_CMD_PCM8DEC, 24, 8) | _SHIFTL(flags, 16, 8);    		\
-	_a->words.w1 = (u32)(state);		\
+	_a->words.w1 = (u32)(uintptr_t)(state);		\
 }
 
 #define aDistFilter(pkt, gain, dmem_in, dmem_out, len)						\
@@ -163,7 +173,7 @@ extern "C" {
                                                                         \
         _a->words.w0 = _SHIFTL(A_CMD_FIRFILTER, 24, 8) | _SHIFTL(f, 16, 8) |   \
                     _SHIFTL(bufSize, 0, 16);                         \
-        _a->words.w1 = (unsigned int)(addr);                            \
+        _a->words.w1 = (unsigned int)(uintptr_t)(addr);                            \
 }
 
 #define aFirLoadTable(pkt, size, addr) aFirFilter(pkt, 2, size, addr)

@@ -8,8 +8,10 @@
 #include "pc_audio_ptr.h"
 /* Recover full pointer from truncated u32 in audio command */
 #define CMDLO_PTR(cmdLo) pc_audio_recover_ptr(cmdLo)
+#define CMD_PTR(cmd) ((cmd)->ptr)
 #else
 #define CMDLO_PTR(cmdLo) ((void*)(cmdLo))
+#define CMD_PTR(cmd) ((void*)((cmd)->words.w1))
 #endif
 #include "jaudio_NES/audiocommon.h"
 

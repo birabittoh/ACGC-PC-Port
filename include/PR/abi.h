@@ -234,6 +234,9 @@ typedef union {
         Aloadadpcm	loadadpcm;
         Amixer		mixer;
         Asetloop        setloop;
+#ifdef TARGET_PC
+        void*           ptr;                    /* 64-bit: allows storing a full pointer in Acmd */
+#endif
         long long int	force_union_align;	/* dummy, force alignment */
 } Acmd;
 

@@ -15,7 +15,7 @@ typedef enum SET_EXT_POINTER_TYPE {
 } SET_EXT_POINTER_TYPE;
 
 typedef s32 (*Na_DmaProc)(OSPiHandle* handle, OSIoMesg* mb, s32 direction);
-typedef s32 (*Na_SyncProc)(u8* param0, s32 param1);
+typedef void* (*Na_SyncProc)(u8* param0, s32 param1);
 
 #ifdef __cplusplus
 extern "C" {
