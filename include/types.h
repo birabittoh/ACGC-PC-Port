@@ -23,6 +23,16 @@
 #include <dolphin/types.h>
 #include "macros.h"
 
+#ifndef ATTRIBUTE_ALIGN
+#if defined(__MWERKS__) || defined(__GNUC__)
+#define ATTRIBUTE_ALIGN(num) __attribute__((aligned(num)))
+#elif defined(_MSC_VER)
+#define ATTRIBUTE_ALIGN(num)
+#else
+#error unknown compiler
+#endif
+#endif
+
 #define VER_GAFE01_00 0
 #define VER_GAFU01_00 1
 
@@ -46,8 +56,8 @@ typedef int32_t  s32;
 typedef uint32_t u32;
 typedef int32_t  s32_compat;
 typedef uint32_t u32_compat;
-typedef int64_t  s64;
-typedef uint64_t u64;
+typedef int64_t  s64 ATTRIBUTE_ALIGN(8);
+typedef uint64_t u64 ATTRIBUTE_ALIGN(8);
 #include <stddef.h>
 #else
 typedef signed long s32;
@@ -75,7 +85,11 @@ typedef volatile s32 vs32;
 typedef volatile s64 vs64;
 
 typedef float f32;
+#ifdef TARGET_PC
+typedef double f64 ATTRIBUTE_ALIGN(8);
+#else
 typedef double f64;
+#endif
 typedef volatile f32 vf32;
 typedef volatile f64 vf64;
 
@@ -113,15 +127,6 @@ typedef u32 unknown;
 #define FLAG_ON(V, F) (((V) & (F)) == 0)
 #define FLAG_OFF(V, F) (((V) & (F)) != 0)
 
-#ifndef ATTRIBUTE_ALIGN
-#if defined(__MWERKS__) || defined(__GNUC__)
-#define ATTRIBUTE_ALIGN(num) __attribute__((aligned(num)))
-#elif defined(_MSC_VER)
-#define ATTRIBUTE_ALIGN(num)
-#else
-#error unknown compiler
-#endif
-#endif
 
 #define BUTTON_NONE 0x0000
 #define BUTTON_CRIGHT 0x0001

@@ -75,6 +75,7 @@ uintptr_t emu64::seg2k0(uintptr_t segadr) {
 #ifndef _WIN32
 #include <sys/mman.h>
 #include <errno.h>
+#include <unistd.h>
 #endif
 
 /* Page-granularity cache for VirtualQuery/mincore results.
@@ -84,7 +85,16 @@ static struct { u32 page; u8 committed; } seg2k0_page_cache[SEG2K0_PAGE_CACHE_SI
 static int seg2k0_cache_next = 0;
 
 static int seg2k0_is_committed(u32 addr) {
-    u32 page = addr & ~0xFFF;
+    static long page_size = 0;
+    if (page_size == 0) {
+#ifdef _WIN32
+        page_size = 4096;
+#else
+        page_size = sysconf(_SC_PAGESIZE);
+        if (page_size <= 0) page_size = 4096;
+#endif
+    }
+    u32 page = addr & ~(u32)(page_size - 1);
     for (int i = 0; i < SEG2K0_PAGE_CACHE_SIZE; i++) {
         if (seg2k0_page_cache[i].page == page) {
             return seg2k0_page_cache[i].committed;
@@ -101,7 +111,7 @@ static int seg2k0_is_committed(u32 addr) {
      * mincore(2) returns 0 on success, and sets vec[0] to indicate if the page is resident.
      * If the address is not mapped, it returns -1 with errno=ENOMEM. */
     unsigned char vec[1];
-    if (mincore((void*)(uintptr_t)page, 4096, vec) == 0) {
+    if (mincore((void*)(uintptr_t)page, (size_t)page_size, vec) == 0) {
         committed = 1;
     } else if (errno != ENOMEM) {
         /* Other error (e.g. invalid pointer) — assume not committed */
