@@ -117,6 +117,7 @@ void pc_platform_init(void) {
         exit(1);
     }
 
+    SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
@@ -170,13 +171,22 @@ void pc_platform_init(void) {
         exit(1);
     }
 
+    const char* renderer = (const char*)glGetString(GL_RENDERER);
     if (g_pc_verbose) {
         printf("[SDL] Video Driver: %s\n", SDL_GetCurrentVideoDriver());
         printf("[GL] Vendor:   %s\n", (const char*)glGetString(GL_VENDOR));
-        printf("[GL] Renderer: %s\n", (const char*)glGetString(GL_RENDERER));
+        printf("[GL] Renderer: %s\n", renderer);
         printf("[GL] Version:  %s\n", (const char*)glGetString(GL_VERSION));
         printf("[GL] SL Ver:   %s\n", (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION));
     }
+
+#ifndef _WIN32
+    if (renderer && (strstr(renderer, "llvmpipe") || strstr(renderer, "softpipe"))) {
+        fprintf(stderr, "\n[PC] WARNING: Software rendering detected (%s).\n", renderer);
+        fprintf(stderr, "[PC] This usually means 32-bit graphics drivers are missing on your system.\n");
+        fprintf(stderr, "[PC] Try installing 'lib32-nvidia-utils' (Arch) or 'libgl1-mesa-dri:i386' (Ubuntu).\n\n");
+    }
+#endif
 
     SDL_GL_SetSwapInterval(g_pc_settings.vsync);
 
