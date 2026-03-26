@@ -110,7 +110,17 @@ uintptr_t pc_crash_get_addr(void) {
 void pc_platform_init(void) {
 #ifdef _WIN32
     SetProcessDPIAware();
+#else
+    /* prefer discrete GPU on Linux (NVIDIA Optimus / PRIME) */
+    setenv("__NV_PRIME_RENDER_OFFLOAD", "1", 0);
+    setenv("__GLX_VENDOR_LIBRARY_NAME", "nvidia", 0);
+    setenv("__VK_LAYER_NV_optimus", "NVIDIA_only", 0);
 
+    /* On Linux, 32-bit EGL often fails to load discrete drivers even if GLX works.
+     * Force GLX backend if a DISPLAY is present. */
+    if (getenv("DISPLAY")) {
+        setenv("SDL_VIDEO_GL_DRIVER", "libGL.so.1", 0);
+    }
 #endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) {
         fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
