@@ -9,7 +9,7 @@
 #endif
 
 static s32 current_sub_track = 0;
-u32 na_melody_id_hist[2];
+uintptr_t na_melody_id_hist[2];
 
 // clang-format off
 static const s32 melody_seq_size[] = {
@@ -623,8 +623,8 @@ static void Na_MelodyStart(u16 voice, s16 subTrack, const u8* pData);
 
 extern void Na_MelodyInit(void) {
     current_sub_track = 0;
-    na_melody_id_hist[0] = 0xFFFFFFFF;
-    na_melody_id_hist[1] = 0xFFFFFFFF;
+    na_melody_id_hist[0] = (uintptr_t)-1;
+    na_melody_id_hist[1] = (uintptr_t)-1;
 }
 
 extern void Na_Inst(u16 inst, u8* pData) {
@@ -712,7 +712,7 @@ extern s16 Na_MelodyGetSubTrackNum(s16 inst) {
     }
 }
 
-extern void Na_FurnitureInst(u32 id, u8 inst, u8* melody, u16 angle, f32 dist) {
+extern void Na_FurnitureInst(uintptr_t id, u8 inst, u8* melody, u16 angle, f32 dist) {
     s32 sub_track;
 
     if (id == na_melody_id_hist[current_sub_track]) {
