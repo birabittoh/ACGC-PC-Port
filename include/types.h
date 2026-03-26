@@ -10,8 +10,11 @@
 #else
 #include <malloc.h>  /* for alloca() */
 #endif
-/* Metrowerks __alloca is a compiler built-in; map to standard alloca on PC */
+/* Metrowerks __alloca is a compiler built-in; map to standard alloca on PC.
+ * Skip on platforms where it's already a built-in or macro to avoid redefinition. */
+#ifndef __alloca
 #define __alloca alloca
+#endif
 /* Metrowerks __declspec(section "...") is not supported by GCC.
  * GCC defines __declspec as a builtin keyword, so we must #undef it first. */
 #undef __declspec
@@ -109,7 +112,7 @@ typedef u32 unknown;
 #define NULL 0
 #endif
 #endif
-#ifndef __cplusplus
+#if !defined(__cplusplus) && !defined(nullptr)
 #define nullptr 0
 #endif
 
