@@ -320,10 +320,6 @@ set_source_files_properties(
     PROPERTIES LANGUAGE CXX
 )
 
-# jaudio_NES C files use nullptr: define it as NULL for C compilation on PC.
-# Generator expression ensures this only applies to C files (C++ has nullptr natively).
-add_compile_options($<$<COMPILE_LANGUAGE:C>:-Dnullptr=NULL>)
-
 # =============================================================================
 # Per-source warning settings
 # =============================================================================
