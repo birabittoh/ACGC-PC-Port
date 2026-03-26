@@ -110,7 +110,6 @@ uintptr_t pc_crash_get_addr(void) {
 void pc_platform_init(void) {
 #ifdef _WIN32
     SetProcessDPIAware();
-
 #endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMECONTROLLER | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) {
         fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
@@ -124,6 +123,7 @@ void pc_platform_init(void) {
     /* macOS requires forward-compatible flag for Core Profile contexts */
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
 #endif
+    SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 #ifdef PC_ENHANCEMENTS
@@ -169,6 +169,31 @@ void pc_platform_init(void) {
         SDL_Quit();
         exit(1);
     }
+
+    if (g_pc_verbose) {
+        const char* vendor = (const char*)glGetString(GL_VENDOR);
+        const char* renderer = (const char*)glGetString(GL_RENDERER);
+        const char* version = (const char*)glGetString(GL_VERSION);
+        const char* glsl = (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
+        printf("[GL] Vendor: %s\n", vendor ? vendor : "Unknown");
+        printf("[GL] Renderer: %s\n", renderer ? renderer : "Unknown");
+        printf("[GL] Version: %s\n", version ? version : "Unknown");
+        printf("[GL] GLSL: %s\n", glsl ? glsl : "Unknown");
+        const char* sdl_driver = SDL_GetCurrentVideoDriver();
+        printf("[SDL] Video Driver: %s\n", sdl_driver ? sdl_driver : "Unknown");
+    }
+
+#ifndef _WIN32
+    {
+        const char* renderer = (const char*)glGetString(GL_RENDERER);
+        if (renderer && (strstr(renderer, "llvmpipe") || strstr(renderer, "softpipe"))) {
+            fprintf(stderr, "\n--- WARNING ---\n"
+                            "Game is running on software renderer (llvmpipe/softpipe).\n"
+                            "This likely means 32-bit graphics drivers are missing on your system.\n"
+                            "----------------\n\n");
+        }
+    }
+#endif
 
     SDL_GL_SetSwapInterval(g_pc_settings.vsync);
 
@@ -307,6 +332,18 @@ extern void ac_entry(void);
 extern int boot_main(int argc, const char** argv);
 
 int main(int argc, char* argv[]) {
+#ifndef _WIN32
+    /* prefer discrete GPU on Linux (NVIDIA PRIME and AMD) */
+    setenv("__NV_PRIME_RENDER_OFFLOAD", "1", 1);
+    setenv("__GLX_VENDOR_LIBRARY_NAME", "nvidia", 1);
+    setenv("__VK_LAYER_NV_optimus", "NVIDIA_only", 1);
+    setenv("DRI_PRIME", "1", 1);
+    if (getenv("DISPLAY") != NULL) {
+        /* prefer GLX to prevent EGL fallback issues on some discrete drivers */
+        setenv("SDL_VIDEO_GL_DRIVER", "libGL.so.1", 1);
+    }
+#endif
+
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             printf("Usage: AnimalCrossing [options]\n");
