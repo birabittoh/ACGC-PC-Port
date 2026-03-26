@@ -171,9 +171,11 @@ void pc_platform_init(void) {
     }
 
     if (g_pc_verbose) {
+        printf("[SDL] Video Driver: %s\n", SDL_GetCurrentVideoDriver());
         printf("[GL] Vendor:   %s\n", (const char*)glGetString(GL_VENDOR));
         printf("[GL] Renderer: %s\n", (const char*)glGetString(GL_RENDERER));
         printf("[GL] Version:  %s\n", (const char*)glGetString(GL_VERSION));
+        printf("[GL] SL Ver:   %s\n", (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION));
     }
 
     SDL_GL_SetSwapInterval(g_pc_settings.vsync);
