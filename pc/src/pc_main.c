@@ -341,15 +341,19 @@ int main(int argc, char* argv[]) {
     /* prefer discrete GPU on Linux (NVIDIA PRIME and AMD) while respecting user overrides */
     setenv("__NV_PRIME_RENDER_OFFLOAD", "1", 0);
     setenv("__GLX_VENDOR_LIBRARY_NAME", "nvidia", 0);
-    setenv("__EGL_VENDOR_LIBRARY_NAME", "nvidia", 0); /* Fix for 32-bit Wayland/EGL on NVIDIA */
-    /* Help EGL loader find driver on some systems where standard paths are ignored in 32-bit */
-    setenv("__EGL_VENDOR_LIBRARY_FILENAMES", "10_nvidia.json", 0);
     setenv("__VK_LAYER_NV_optimus", "NVIDIA_only", 0);
     setenv("DRI_PRIME", "1", 0);
 
     const char* wayland_display = getenv("WAYLAND_DISPLAY");
     const char* x11_display = getenv("DISPLAY");
 
+#if UINTPTR_MAX <= 0xFFFFFFFFu
+    /* On 32-bit Linux, Wayland/EGL often fails to load discrete drivers (lib32-nvidia-utils).
+     * We default to X11 (XWayland) for stability, but allow user override via SDL_VIDEODRIVER. */
+    if (wayland_display != NULL && x11_display != NULL) {
+        setenv("SDL_VIDEODRIVER", "x11", 0);
+    }
+#endif
 
     const char* sdl_vid_drv = getenv("SDL_VIDEODRIVER");
     if (sdl_vid_drv != NULL && strcmp(sdl_vid_drv, "x11") == 0) {
