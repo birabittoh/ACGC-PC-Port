@@ -790,7 +790,7 @@ private:
 #ifdef TARGET_PC
     /* Resolved image address — stores the full native pointer from seg2k0,
      * avoiding truncation through the 32-bit imgaddr bitfield. */
-    uintptr_t resolved_imgaddr;
+    uintptr_t resolved_imgaddr ATTRIBUTE_ALIGN(8);
 #endif
     /* 0x0480 */ u8 tex_edge_alpha;
 

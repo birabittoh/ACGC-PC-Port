@@ -151,13 +151,14 @@ static int g_stat_neg_hits = 0;
 #define TEXPACK_MAP_BITS  15
 #define TEXPACK_MAP_SIZE  (1 << TEXPACK_MAP_BITS)  /* 32768 */
 #define TEXPACK_MAP_MASK  (TEXPACK_MAP_SIZE - 1)
+#define TEXPACK_PATH_MAX  4096
 
 typedef struct {
     xxh_u64 data_hash;
     xxh_u64 tlut_hash;
     xxh_u32 gc_fmt;
     xxh_u32 orig_w, orig_h;
-    char    filepath[260];
+    char    filepath[TEXPACK_PATH_MAX];
     int     occupied;
 } TexPackEntry;
 
@@ -174,7 +175,7 @@ typedef struct {
     xxh_u64 data_hash;
     xxh_u32 gc_fmt;
     xxh_u32 orig_w, orig_h;
-    char    filepath[260];
+    char    filepath[TEXPACK_PATH_MAX];
     int     occupied;
 } TexPackWildcardEntry;
 
@@ -212,8 +213,8 @@ static void texpack_insert(xxh_u64 data_hash, xxh_u64 tlut_hash, xxh_u32 fmt,
             g_texpack_map[idx].gc_fmt = fmt;
             g_texpack_map[idx].orig_w = w;
             g_texpack_map[idx].orig_h = h;
-            strncpy(g_texpack_map[idx].filepath, filepath, 259);
-            g_texpack_map[idx].filepath[259] = '\0';
+            strncpy(g_texpack_map[idx].filepath, filepath, TEXPACK_PATH_MAX - 1);
+            g_texpack_map[idx].filepath[TEXPACK_PATH_MAX - 1] = '\0';
             g_texpack_map[idx].occupied = 1;
             g_texpack_count++;
             break;
@@ -251,8 +252,8 @@ static void texpack_insert_wildcard(xxh_u64 data_hash, xxh_u32 fmt,
             g_texpack_wc_map[idx].gc_fmt = fmt;
             g_texpack_wc_map[idx].orig_w = w;
             g_texpack_wc_map[idx].orig_h = h;
-            strncpy(g_texpack_wc_map[idx].filepath, filepath, 259);
-            g_texpack_wc_map[idx].filepath[259] = '\0';
+            strncpy(g_texpack_wc_map[idx].filepath, filepath, TEXPACK_PATH_MAX - 1);
+            g_texpack_wc_map[idx].filepath[TEXPACK_PATH_MAX - 1] = '\0';
             g_texpack_wc_map[idx].occupied = 1;
             g_texpack_count++;
             break;
@@ -350,7 +351,7 @@ static int parse_texpack_filename(const char* name, xxh_u32* w, xxh_u32* h,
 #undef far
 
 static void scan_directory(const char* dir_path) {
-    char search_path[300];
+    char search_path[TEXPACK_PATH_MAX + 4];
     snprintf(search_path, sizeof(search_path), "%s\\*", dir_path);
 
     WIN32_FIND_DATAA fd;
@@ -360,7 +361,7 @@ static void scan_directory(const char* dir_path) {
     do {
         if (fd.cFileName[0] == '.') continue;
 
-        char full_path[300];
+        char full_path[TEXPACK_PATH_MAX];
         snprintf(full_path, sizeof(full_path), "%s\\%s", dir_path, fd.cFileName);
 
         if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
@@ -398,7 +399,7 @@ static void scan_directory(const char* dir_path) {
     while ((ent = readdir(d)) != NULL) {
         if (ent->d_name[0] == '.') continue;
 
-        char full_path[300];
+        char full_path[TEXPACK_PATH_MAX];
         snprintf(full_path, sizeof(full_path), "%s/%s", dir_path, ent->d_name);
 
         struct stat st;
@@ -525,8 +526,13 @@ static GLuint load_dds_file(const char* filepath, int* out_w, int* out_h) {
     }
 
     unsigned char* pixels = (unsigned char*)malloc(data_size);
-    if (!pixels) { fclose(f); return 0; }
+    if (!pixels) {
+        printf("[TexturePack] Failed to allocate %d bytes for DDS: %s\n", data_size, filepath);
+        fclose(f);
+        return 0;
+    }
     if ((int)fread(pixels, 1, data_size, f) != data_size) {
+        printf("[TexturePack] Unexpected EOF reading %d bytes for DDS: %s\n", data_size, filepath);
         free(pixels);
         fclose(f);
         return 0;
@@ -542,7 +548,7 @@ static GLuint load_dds_file(const char* filepath, int* out_w, int* out_h) {
         }
     }
 
-    GLuint tex;
+    GLuint tex = 0;
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
 
@@ -557,6 +563,7 @@ static GLuint load_dds_file(const char* filepath, int* out_w, int* out_h) {
 
     GLenum err = glGetError();
     if (err != GL_NO_ERROR) {
+        printf("[TexturePack] GL error 0x%X uploading DDS: %s\n", err, filepath);
         glDeleteTextures(1, &tex);
         free(pixels);
         return 0;
@@ -564,6 +571,8 @@ static GLuint load_dds_file(const char* filepath, int* out_w, int* out_h) {
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
     free(pixels);
 
@@ -679,6 +688,23 @@ static void check_compressed_texture_support(void) {
         if (strcmp(ext, "GL_ARB_texture_compression_bptc") == 0) g_has_bc7 = 1;
         if (strcmp(ext, "GL_EXT_texture_compression_s3tc") == 0) g_has_s3tc = 1;
     }
+
+#ifdef __APPLE__
+    /* macOS on Apple Silicon supports BC7/S3TC but doesn't always advertise the extensions
+     * in the core profile extension list. We check if the internal formats are usable. */
+    if (!g_has_bc7) {
+        GLint supported = 0;
+        /* GL_COMPRESSED_RGBA_BPTC_UNORM is 0x8E8C */
+        glGetInternalformativ(GL_TEXTURE_2D, 0x8E8C, GL_INTERNALFORMAT_SUPPORTED, 1, &supported);
+        if (supported) g_has_bc7 = 1;
+    }
+    if (!g_has_s3tc) {
+        GLint supported = 0;
+        /* GL_COMPRESSED_RGBA_S3TC_DXT5_EXT is 0x83F3 */
+        glGetInternalformativ(GL_TEXTURE_2D, 0x83F3, GL_INTERNALFORMAT_SUPPORTED, 1, &supported);
+        if (supported) g_has_s3tc = 1;
+    }
+#endif
 }
 
 static void xxhash64_selftest(void) {
@@ -829,6 +855,12 @@ static int preload_from_cache(int expected_count) {
     return 1;
 }
 
+/* Preload entry info for cache building */
+typedef struct {
+    xxh_u64 cache_key;
+    char filepath[TEXPACK_PATH_MAX];
+} PreloadEntry;
+
 /* Load raw DDS file data without creating a GL texture (for cache building).
  * Returns malloc'd pixel data, fills out metadata. Caller must free(). */
 static unsigned char* load_dds_raw(const char* filepath, xxh_u32* out_w, xxh_u32* out_h,
@@ -917,12 +949,6 @@ static unsigned char* load_dds_raw(const char* filepath, xxh_u32* out_w, xxh_u32
     *out_data_size = data_size;
     return pixels;
 }
-
-/* Preload entry info for cache building */
-typedef struct {
-    xxh_u64 cache_key;
-    char filepath[260];
-} PreloadEntry;
 
 void pc_texture_pack_preload_all(void) {
     if (!g_texpack_active) return;
