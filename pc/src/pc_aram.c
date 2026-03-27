@@ -68,14 +68,14 @@ BOOL ARCheckInit(void) { return aram_base != NULL; }
 /* ARQ - synchronous wrapper around ARStartDMA.
  * ARQPostRequest's source/dest order differs from ARStartDMA's, so we remap. */
 void ARQInit(void) {}
-void ARQPostRequest(void* req, u32 owner, u32 type, u32 prio,
+void ARQPostRequest(void* req, uintptr_t owner, u32 type, u32 prio,
                     uintptr_t source, uintptr_t dest, u32 length, void* callback) {
     if (type == 0) {
         ARStartDMA(type, source, (u32)dest, length); /* source=mram, dest=aram */
     } else {
         ARStartDMA(type, dest, (u32)source, length); /* source=aram, dest=mram — swapped */
     }
-    if (callback) ((void (*)(uintptr_t))callback)((uintptr_t)req);
+    if (callback) ((void (*)(u32))callback)((u32)(uintptr_t)req);
 }
 
 void ARQFlushQueue(void) {}

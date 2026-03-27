@@ -39,7 +39,7 @@ extern s32 Nas_PreLoadSeq_BG(s32 seqId, s32 param2, s32 param3, OSMesgQueue* mq)
 extern void Nas_FlushBank(s32 seqId);
 extern u8 Nas_MapHeaderReadByte(s32 byteIndex);
 
-extern void Nas_SetExtPointer(s32 type, s32 idx, s32 set_type, s32 param);
+extern void Nas_SetExtPointer(s32 type, s32 idx, s32 set_type, uintptr_t param);
 
 extern void Nas_WaveDmaFrameWork(void);
 extern void Nas_BgDmaFrameWork(s32 reset_status);

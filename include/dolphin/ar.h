@@ -38,7 +38,7 @@ struct ARQRequest {
 // ARQ functions.
 void ARQInit();
 #ifdef TARGET_PC
-void ARQPostRequest(void* req, u32 owner, u32 type, u32 prio, uintptr_t source, uintptr_t dest, u32 length, void* callback);
+void ARQPostRequest(void* req, uintptr_t owner, u32 type, u32 prio, uintptr_t source, uintptr_t dest, u32 length, void* callback);
 #else
 void ARQPostRequest(ARQRequest* task, u32 owner, u32 type, u32 priority, u32 source, u32 dest, u32 length, ARQCallback callback);
 #endif
