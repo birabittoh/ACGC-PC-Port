@@ -62,11 +62,7 @@ extern void RspStart2(Acmd* task, s32 tasks, s32 mode) {
     if (alltasks > 0) {
         consumes = RspStart(taskp, alltasks);
         alltasks -= consumes;
-#ifdef TARGET_PC
         taskp += consumes;
-#else
-        taskp += (consumes * 2);
-#endif
     }
 }
 
@@ -228,7 +224,7 @@ extern s32 RspStart(Acmd* pTaskCmds, s32 allTasks) {
 
             case A_CMD_CLEARBUFF: // A_CLEARBUFF
                 u16 addr = cmdHi & 0xFFFF;
-                u16 size = cmd->pc.w1 & 0xFFFF;
+                u16 size = cmd->words.w1 & 0xFFFF;
                 Jac_bzero(&DMEM[addr], size);
                 break;
 

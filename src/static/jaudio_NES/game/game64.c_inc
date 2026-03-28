@@ -29,6 +29,7 @@ typedef struct SOU_LEV_ONGEN_DATA {
     uintptr_t _04;
     u8 _08;
     u8 _09;
+    u8 _pad[2]; /* 8-byte alignment padding for 64-bit */
     f32 distance;
     f32 distance2;
 } SOU_LEV_ONGEN_DATA;
@@ -42,6 +43,7 @@ typedef struct SOU_LS_STACK {
     u8 _5;
     u8 _6;
     u8 _7;
+    u8 _pad[8]; /* 8-byte alignment padding for 64-bit */
 } SOU_LS_STACK;
 
 typedef struct SOU_LEV_SE {
