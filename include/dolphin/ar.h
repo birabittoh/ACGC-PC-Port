@@ -14,7 +14,11 @@ typedef struct ARQRequest ARQRequest;
 typedef void (*ARCallback)(void);
 
 // ARQ callback function type.
+#ifdef TARGET_PC
+typedef void (*ARQCallback)(uintptr_t ptrToRequest);
+#else
 typedef void (*ARQCallback)(u32 ptrToRequest);
+#endif
 
 struct ARQRequest {
 	ARQRequest* next;     // _00
@@ -47,11 +51,11 @@ void ARQPostRequest(ARQRequest* task, u32 owner, u32 type, u32 priority, u32 sou
 ARQCallback ARRegisterDMACallback(ARQCallback callback);
 u32 ARGetDMAStatus();
 #ifdef TARGET_PC
-void ARStartDMA(u32 type, uintptr_t mainmem_addr, u32 aram_addr, u32 length);
+void ARStartDMA(u32 type, uintptr_t mainmem_addr, uintptr_t aram_addr, u32 length);
 #else
 void ARStartDMA(u32 type, u32 mainmem_addr, u32 aram_addr, u32 length);
 #endif
-u32 ARAlloc(u32 length);
+uintptr_t ARAlloc(u32 length);
 u32 ARInit(u32* stack_index_addr, u32 num_entries);
 u32 ARGetBaseAddress();
 u32 ARGetSize();

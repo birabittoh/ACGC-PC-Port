@@ -690,7 +690,7 @@ static void Na_MelodyStart(u16 voice, s16 subTrack, const u8* pData) {
 #ifdef TARGET_PC
     Nap_SetPtr(NA_MAKE_COMMAND(0x10, 0x00, subTrack, 0x00), pData);
 #else
-    Nap_SetS32(NA_MAKE_COMMAND(0x10, 0x00, subTrack, 0x00), (u32)pData);
+    Nap_SetS32(NA_MAKE_COMMAND(0x10, 0x00, subTrack, 0x00), (u32)(uintptr_t)pData);
 #endif
     Nap_SetS8(NA_MAKE_COMMAND(0x06, 0x00, subTrack, 0x02), voice);
     Nap_SetS8(NA_MAKE_COMMAND(0x06, 0x00, subTrack, 0x00), 0);
@@ -737,7 +737,7 @@ extern void Na_FurnitureInst(uintptr_t id, u8 inst, u8* melody, u16 angle, f32 d
 #ifdef TARGET_PC
     Nap_SetPtr(NA_MAKE_COMMAND(0x10, 0x02, sub_track, 0x00), melody);
 #else
-    Nap_SetS32(NA_MAKE_COMMAND(0x10, 0x02, sub_track, 0x00), (u32)melody);
+    Nap_SetS32(NA_MAKE_COMMAND(0x10, 0x02, sub_track, 0x00), (u32)(uintptr_t)melody);
 #endif
     Nap_SetS8(NA_MAKE_COMMAND(0x06, 0x02, sub_track, 0x02), inst);
     Nap_SetS8(NA_MAKE_COMMAND(0x06, 0x02, sub_track, 0x00), 0);

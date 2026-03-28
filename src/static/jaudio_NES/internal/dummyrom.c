@@ -41,7 +41,7 @@ extern void mesg_finishcall(u32 mq) {
     Z_osSendMesg((OSMesgQueue*)mq, NULL, OS_MESSAGE_NOBLOCK);
 }
 
-extern BOOL ARAMStartDMAmesg(u32 dir, u32 dramAddr, u32 aramAddr, u32 size, s32 unused, OSMesgQueue* mq) {
+extern BOOL ARAMStartDMAmesg(u32 dir, uintptr_t dramAddr, u32 aramAddr, u32 size, s32 unused, OSMesgQueue* mq) {
     aramAddr += AUDIO_ARAM_TOP;
 
     if (dir == DUMMYROM_ARAM_TO_DRAM) {
@@ -58,9 +58,11 @@ extern void Jac_SetAudioARAMSize(u32 size) {
 }
 
 extern void* ARAllocFull(u32* outSize) {
-    u32 freeSize = (u32)(aram_hp.length - ((uintptr_t)aram_hp.current - (uintptr_t)aram_hp.base));
+    u32 freeSize = (u32)((uintptr_t)aram_hp.length - ((uintptr_t)aram_hp.current - (uintptr_t)aram_hp.base));
     void* alloc = Nas_HeapAlloc(&aram_hp, freeSize - 32);
-    *outSize = freeSize - 32;
+    if (outSize) {
+        *outSize = freeSize - 32;
+    }
     return alloc;
 }
 

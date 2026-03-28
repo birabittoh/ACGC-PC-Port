@@ -11,7 +11,6 @@
 #include "jaudio_NES/audioheaders.h"
 #include <dolphin/os.h>
 #ifdef TARGET_PC
-#include "pc_audio_ptr.h"
 #include <dolphin/ar.h>
 #include <stdlib.h>
 #include <string.h>
@@ -339,7 +338,7 @@ static void pc_add_visited_wt(void* gc_addr, smzwavetable* native) {
  * smzwavetable with properly widened pointer fields.
  */
 static void __WaveTouch_PC(wtstr* wavetouch_str, uintptr_t ram_addr, WaveMedia* wave_media) {
-    u32 wt_ofs = (u32)(uintptr_t)wavetouch_str->wavetable;
+    uintptr_t wt_ofs = (uintptr_t)wavetouch_str->wavetable;
     smzwavetable_gc* gc_wt;
     smzwavetable* native_wt;
     u32 gc_bitfield;
@@ -525,8 +524,8 @@ static void Nas_BankOfsToAddr_Inner_PC(s32 bank_id, u8* ctrl_p, WaveMedia* wave_
 
                 /* Relocate envelope */
                 {
-                    u32 env_ofs = (u32)(uintptr_t)native->envelope;
-                    native->envelope = (envdat*)((uintptr_t)ctrl_p + (uintptr_t)env_ofs);
+                    uintptr_t env_ofs = (uintptr_t)native->envelope;
+                    native->envelope = (envdat*)((uintptr_t)ctrl_p + env_ofs);
                     pc_swap_envdat(native->envelope);
                 }
 
@@ -636,8 +635,8 @@ static void Nas_BankOfsToAddr_Inner_PC(s32 bank_id, u8* ctrl_p, WaveMedia* wave_
 
             /* Relocate envelope */
             {
-                u32 env_ofs = (u32)(uintptr_t)native->envelope;
-                native->envelope = (envdat*)((uintptr_t)ctrl_p + (uintptr_t)env_ofs);
+                uintptr_t env_ofs = (uintptr_t)native->envelope;
+                native->envelope = (envdat*)((uintptr_t)ctrl_p + env_ofs);
                 pc_swap_envdat(native->envelope);
             }
 
@@ -651,7 +650,7 @@ static void Nas_BankOfsToAddr_Inner_PC(s32 bank_id, u8* ctrl_p, WaveMedia* wave_
 }
 #endif /* TARGET_PC */
 
-static void* Nas_GetSyncDummy(u8* param0, s32 param1);
+static s32 Nas_GetSyncDummy(u8* param0, s32 param1);
 
 BOOL AUDIO_SYSTEM_READY = FALSE;
 static void* FASTDMA_BUFFER = NULL;
@@ -691,7 +690,7 @@ static void __Nas_BgCopy(Bgload* bgload, s32 size);
 
 u8 Nas_MapHeaderReadByte(s32 byteIndex) {
 #ifdef TARGET_PC
-    u16 word = AG.map_header[(uintptr_t)byteIndex >> 1];
+    u16 word = AG.map_header[(u32)byteIndex >> 1];
 
     if (byteIndex & 1) {
         return word & 0xFF;
@@ -738,7 +737,11 @@ void Nas_WaveDmaFrameWork(void) {
     AG._2648 = 0;
 }
 
+#ifdef TARGET_PC
+void* Nas_WaveDmaCallBack(uintptr_t device_addr, u32 size, s32 arg2, u8* waveload_idx, s32 medium) {
+#else
 void* Nas_WaveDmaCallBack(u32 device_addr, u32 size, s32 arg2, u8* waveload_idx, s32 medium) {
+#endif
     WaveLoad* waveload;
     s32 hasWaveload = FALSE;
     u32 waveloadDevAddr;
@@ -751,8 +754,8 @@ void* Nas_WaveDmaCallBack(u32 device_addr, u32 size, s32 arg2, u8* waveload_idx,
     if (arg2 != 0 || *waveload_idx >= AG.waveload_count) {
         for (i = AG.waveload_count; i < AG.num_waveloads; i++) {
             waveload = &AG.waveload_list[i];
-            bufferPos = device_addr - waveload->device_addr;
-            if (0 <= bufferPos && (uintptr_t)bufferPos <= waveload->size - size) {
+            bufferPos = (s32)(device_addr - waveload->device_addr);
+            if (0 <= bufferPos && (u32)bufferPos <= waveload->size - size) {
                 // We already have a WAVELOAD request for this memory range.
                 if (waveload->time_to_live == 0 && AG.waveload_dma_queue1_rpos != AG.waveload_dma_queue1_wpos) {
                     // Move the WAVELOAD out of the reuse queue, by swapping it with the
@@ -787,7 +790,7 @@ void* Nas_WaveDmaCallBack(u32 device_addr, u32 size, s32 arg2, u8* waveload_idx,
         waveload = AG.waveload_list + *waveload_idx;
         for (i = 0; i <= AG.waveload_count; waveload = AG.waveload_list + i++) {
             bufferPos = device_addr - waveload->device_addr;
-            if (0 <= bufferPos && (uintptr_t)bufferPos <= waveload->size - size) {
+            if (0 <= bufferPos && (u32)bufferPos <= waveload->size - size) {
                 // We already have WAVELOAD for this memory range.
                 if (waveload->time_to_live == 0) {
                     // Move the WAVELOAD out of the reuse queue, by swapping it with the
@@ -819,15 +822,15 @@ void* Nas_WaveDmaCallBack(u32 device_addr, u32 size, s32 arg2, u8* waveload_idx,
     }
 
     transfer = waveload->size;
-    waveloadDevAddr = ALIGN_PREV(device_addr, 32);
+    waveloadDevAddr = ALIGN_PREV((uintptr_t)device_addr, 32);
     waveload->time_to_live = 3;
     waveload->device_addr = waveloadDevAddr;
     waveload->size_unused = transfer;
     Nas_StartDma(&AG.cur_adio_frame_dma_io_mesg_buf[AG.current_frame_dma_count++], 0 /* OS_MESG_PRI_NORMAL */,
-                 0 /* OS_READ */, (uintptr_t)waveloadDevAddr, waveload->ram_addr, transfer, &AG.cur_audio_frame_dma_queue, medium,
+                 0 /* OS_READ */, waveloadDevAddr, waveload->ram_addr, transfer, &AG.cur_audio_frame_dma_queue, medium,
                  (s8*)"SUPERDMA");
     *waveload_idx = waveloadIndex;
-    return (device_addr - waveloadDevAddr) + waveload->ram_addr;
+    return (void*)((uintptr_t)device_addr - (uintptr_t)waveloadDevAddr + (uintptr_t)waveload->ram_addr);
 }
 
 void Nas_WaveDmaNew(s32 n_channels) {
@@ -855,7 +858,7 @@ void Nas_WaveDmaNew(s32 n_channels) {
         AG.num_waveloads++;
     }
 
-    for (i = 0; (uintptr_t)i < AG.num_waveloads; i++) {
+    for (i = 0; (u32)i < AG.num_waveloads; i++) {
         AG.waveload_dma_queue0[i] = i;
         AG.waveload_list[i].reuse_idx = i;
     }
@@ -885,7 +888,7 @@ void Nas_WaveDmaNew(s32 n_channels) {
         AG.num_waveloads++;
     }
 
-    for (i = AG.waveload_count; (uintptr_t)i < AG.num_waveloads; i++) {
+    for (i = AG.waveload_count; (u32)i < AG.num_waveloads; i++) {
         AG.waveload_dma_queue1[i - AG.waveload_count] = i;
         AG.waveload_list[i].reuse_idx = i - AG.waveload_count;
     }
@@ -985,11 +988,7 @@ void Nas_BankHeaderInit(ArcHeader* header, u8* data, u16 medium) {
 
     for (i = 0; i < header->numEntries; i++) {
         if (header->entries[i].size != 0 && header->entries[i].medium == MEDIUM_CART) {
-#ifdef TARGET_PC
             header->entries[i].addr += (uintptr_t)data;
-#else
-            header->entries[i].addr += (uintptr_t)data;
-#endif
         }
     }
 }
@@ -1178,10 +1177,10 @@ void Nas_SetExtPointer(s32 table_type, s32 idx, s32 param_3, uintptr_t data) {
     if (header->entries[idx].medium == MEDIUM_RAM_UNLOADED) {
         switch (param_3) {
             case EXT_TYPE_DATA:
-                header->entries[idx].addr = (uintptr_t)data;
+                header->entries[idx].addr = data;
                 break;
             case EXT_TYPE_SIZE:
-                header->entries[idx].size = (s32)data;
+                header->entries[idx].size = data;
                 break;
         }
     }
@@ -1258,7 +1257,7 @@ static u8* __Load_Seq(s32 seq_id) {
     return (u8*)__Load_Bank(SEQUENCE_TABLE, seq_id, &did_alloc);
 }
 
-static u32 __Load_Wave_Check(s32 wave_id, u32* medium) {
+static uintptr_t __Load_Wave_Check(s32 wave_id, u32* medium) {
     return __Load_Wave(wave_id, medium, TRUE);
 }
 
@@ -1399,13 +1398,19 @@ static u8* __Load_Bank(s32 table_type, s32 id, s32* did_alloc) {
             if (table_type == BANK_TABLE) {
                 size -= sizeof(ArcEntry);
                 vinfo = &AG.voice_info[link_id];
+#ifdef TARGET_PC
+                vinfo->num_instruments = BSWAP16(((u16*)rom_addr)[0]);
+                vinfo->num_drums = BSWAP16(((u16*)rom_addr)[1]);
+                vinfo->num_sfx = BSWAP16(((u16*)rom_addr)[2]);
+#else
                 vinfo->num_instruments = ((u16*)rom_addr)[0];
                 vinfo->num_drums = ((u16*)rom_addr)[1];
                 vinfo->num_sfx = ((u16*)rom_addr)[2];
+#endif
                 rom_addr += sizeof(ArcEntry);
             }
 
-            Z_bcopy(rom_addr, ram_addr, (s32)size);
+            Z_bcopy(rom_addr, ram_addr, size);
         } else if (medium == MEDIUM_DISK) {
             Nas_FastDiskCopy(rom_addr, ram_addr, size, header->medium);
         } else {
@@ -1493,11 +1498,11 @@ static ArcHeader* __Get_ArcHeader(s32 table_type) {
 }
 
 #ifdef TARGET_PC
-#define OFS2RAM(base, ofs) (void*)((uintptr_t)(ofs) + (uintptr_t)base)
-#define BANK_ENTRY(ctrl, idx) (((uintptr_t*)((uintptr_t)ctrl)) + idx)
+#define OFS2RAM(base, ofs) ((uintptr_t)(ofs) + (uintptr_t)base)
+#define BANK_ENTRY(ctrl, idx) (((u32*)((uintptr_t)ctrl)) + idx)
 #else
-#define OFS2RAM(base, ofs) (void*)((uintptr_t)(ofs) + (uintptr_t)base)
-#define BANK_ENTRY(ctrl, idx) (((uintptr_t*)((uintptr_t)ctrl)) + idx)
+#define OFS2RAM(base, ofs) ((u32)(ofs) + (u32)base)
+#define BANK_ENTRY(ctrl, idx) (((u32*)((u32)ctrl)) + idx)
 #endif
 
 static void Nas_BankOfsToAddr_Inner(s32 bank_id, u8* ctrl_p, WaveMedia* wave_media) {
@@ -1530,22 +1535,30 @@ static void Nas_BankOfsToAddr_Inner(s32 bank_id, u8* ctrl_p, WaveMedia* wave_med
     return;
 #endif
 
-    ofs = (u32)(uintptr_t)*BANK_ENTRY(ctrl_p, 0);
+    ofs = *BANK_ENTRY(ctrl_p, 0);
     if (ofs != 0 && n_perc_inst != 0) {
-        *BANK_ENTRY(ctrl_p, 0) = (uintptr_t)OFS2RAM(ctrl_p, ofs);
+        *BANK_ENTRY(ctrl_p, 0) = OFS2RAM(ctrl_p, ofs);
 
 #ifdef TARGET_PC
         /* Swap the percussion pointer array (u32 offsets to each perctable) */
-        pc_swap_perc_ptr_array((u32*)(uintptr_t)*BANK_ENTRY(ctrl_p, 0), n_perc_inst);
+        pc_swap_perc_ptr_array((u32*)*BANK_ENTRY(ctrl_p, 0), n_perc_inst);
 #endif
 
         for (i = 0; i < n_perc_inst; i++) {
-            inst_ofs = (uintptr_t)((u32*)(uintptr_t)*BANK_ENTRY(ctrl_p, 0))[i];
+#ifdef TARGET_PC
+            inst_ofs = (uintptr_t)((perctable**)*BANK_ENTRY(ctrl_p, 0))[i];
+#else
+            inst_ofs = (u32)((perctable**)*BANK_ENTRY(ctrl_p, 0))[i];
+#endif
             if (inst_ofs == 0) {
                 continue; // empty percussion/drum entry
             }
 
+#ifdef TARGET_PC
             inst_ofs += (uintptr_t)ctrl_p; // OFS2RAM(ctrl_p, ofs);
+#else
+            inst_ofs += (u32)ctrl_p; // OFS2RAM(ctrl_p, ofs);
+#endif
             percvt = (perctable*)inst_ofs;
             ((perctable**)*BANK_ENTRY(ctrl_p, 0))[i] = percvt;
 
@@ -1566,7 +1579,7 @@ static void Nas_BankOfsToAddr_Inner(s32 bank_id, u8* ctrl_p, WaveMedia* wave_med
 #ifdef TARGET_PC
             inst_ofs = (uintptr_t)percvt->envelope;
 #else
-            inst_ofs = (uintptr_t)percvt->envelope;
+            inst_ofs = (u32)percvt->envelope;
 #endif
             percvt->envelope = (envdat*)OFS2RAM(ctrl_p, inst_ofs);
 #ifdef TARGET_PC
@@ -1577,9 +1590,9 @@ static void Nas_BankOfsToAddr_Inner(s32 bank_id, u8* ctrl_p, WaveMedia* wave_med
     }
 
     // Sound effects
-    ofs = (u32)(uintptr_t)*BANK_ENTRY(ctrl_p, 1);
+    ofs = *BANK_ENTRY(ctrl_p, 1);
     if (ofs != 0 && n_sfx_inst != 0) {
-        *BANK_ENTRY(ctrl_p, 1) = (uintptr_t)OFS2RAM(ctrl_p, ofs);
+        *BANK_ENTRY(ctrl_p, 1) = OFS2RAM(ctrl_p, ofs);
 
 #ifdef TARGET_PC
         /* Swap all sfx entries (percvoicetable = wtstr = {ptr, f32}) */
@@ -1590,7 +1603,11 @@ static void Nas_BankOfsToAddr_Inner(s32 bank_id, u8* ctrl_p, WaveMedia* wave_med
 #endif
 
         for (i = 0; i < n_sfx_inst; i++) {
+#ifdef TARGET_PC
             inst_ofs = (uintptr_t)(((percvoicetable*)*BANK_ENTRY(ctrl_p, 1)) + i);
+#else
+            inst_ofs = (u32)(((percvoicetable*)*BANK_ENTRY(ctrl_p, 1)) + i);
+#endif
             sfx = (percvoicetable*)inst_ofs;
 
             // check for null sfx or null sample wave table pointer
@@ -1612,9 +1629,9 @@ static void Nas_BankOfsToAddr_Inner(s32 bank_id, u8* ctrl_p, WaveMedia* wave_med
     }
 
     for (i = 2; i <= 2 + n_voice_inst - 1; i++) {
-        ofs = (u32)(uintptr_t)*BANK_ENTRY(ctrl_p, i);
+        ofs = *BANK_ENTRY(ctrl_p, i);
         if (ofs != 0) {
-            *BANK_ENTRY(ctrl_p, i) = (uintptr_t)OFS2RAM(ctrl_p, ofs);
+            *BANK_ENTRY(ctrl_p, i) = OFS2RAM(ctrl_p, ofs);
             inst = (voicetable*)*BANK_ENTRY(ctrl_p, i);
 
             // instrument may appear multiple times in the list
@@ -1650,7 +1667,7 @@ static void Nas_BankOfsToAddr_Inner(s32 bank_id, u8* ctrl_p, WaveMedia* wave_med
 #ifdef TARGET_PC
                 inst_ofs = (uintptr_t)inst->envelope;
 #else
-                inst_ofs = (uintptr_t)inst->envelope;
+                inst_ofs = (u32)inst->envelope;
 #endif
                 inst->envelope = (envdat*)OFS2RAM(ctrl_p, inst_ofs);
 #ifdef TARGET_PC
@@ -1682,15 +1699,15 @@ void Nas_FastCopy(u8* SrcAddr, u8* DestAdd, size_t Length, s32 medium) {
         OSReport("DMA Warning: Length  %d is not align32\n", Length);
     }
 
-    if ((((uintptr_t)SrcAddr) & 0x1F) != 0) {
+    if ((((u32)SrcAddr) & 0x1F) != 0) {
         OSReport("DMA Warning: SrcAddr %d is not align32\n", SrcAddr);
     }
 
-    if ((((uintptr_t)DestAdd) & 0x1F) != 0) {
+    if ((((u32)DestAdd) & 0x1F) != 0) {
         OSReport("DMA Warning: DestAdd %d is not align32\n", DestAdd);
     }
 
-    if ((((uintptr_t)SrcAddr) & 0x1F) != 0) {
+    if ((((u32)SrcAddr) & 0x1F) != 0) {
         unalign_src_copy = (u8*)FASTDMA_BUFFER;
 
         // DMA the first non-align32 bytes
@@ -1698,8 +1715,8 @@ void Nas_FastCopy(u8* SrcAddr, u8* DestAdd, size_t Length, s32 medium) {
         Nas_StartDma(&AG.sync_dma_io_mesg, 1, 0, (uintptr_t)SrcAddr - (((uintptr_t)SrcAddr) & 0x1F), FASTDMA_BUFFER, 0x20,
                      &AG.sync_dma_queue, medium, (s8*)"FastCopy");
         Z_osRecvMesg(&AG.sync_dma_queue, NULL, OS_MESG_BLOCK);
-        unalign_copy_len = 32 - (((uintptr_t)SrcAddr) & 0x1F);
-        Z_bcopy(unalign_src_copy + (((uintptr_t)SrcAddr) & 0x1F), DestAdd, 32 - (((uintptr_t)SrcAddr) & 0x1F));
+        unalign_copy_len = 32 - (((u32)SrcAddr) & 0x1F);
+        Z_bcopy(unalign_src_copy + (((u32)SrcAddr) & 0x1F), DestAdd, 32 - (((u32)SrcAddr) & 0x1F));
         SrcAddr += unalign_copy_len;
         DestAdd += unalign_copy_len;
         Length -= unalign_copy_len;
@@ -1769,8 +1786,8 @@ static s32 Nas_StartDma(OSIoMesg* ioMsg, s32 priority, s32 direction, uintptr_t 
 
     /* device_addr is an ARAM offset (relative to audiorom start).
      * GetNeosRomTop() gives the base ARAM address for audiorom data. */
-    u32 aram_offset = (u32)(uintptr_t)device_addr + GetNeosRomTop();
-    ARStartDMA(direction == 0 ? 0 : 1, (uintptr_t)dram_addr, aram_offset, size);
+    uintptr_t aram_offset = device_addr + (uintptr_t)GetNeosRomTop();
+    ARStartDMA(1 /* ARAM→MRAM */, (uintptr_t)dram_addr, aram_offset, size);
 
     /* Send completion message so callers that do Z_osRecvMesg(BLOCK) unblock */
     if (mq != NULL) {
@@ -1914,18 +1931,18 @@ static u8* __Load_Bank_BG(s32 table_type, s32 id, s32 n_chunks, s32 ret_data, OS
             if (table_type == BANK_TABLE) {
                 size -= 0x10;
                 vinfo = &AG.voice_info[link_id];
-                    vinfo->num_instruments = ((u16*)(uintptr_t)devAddr)[0];
-                    vinfo->num_drums = ((u16*)(uintptr_t)devAddr)[1];
-                    vinfo->num_sfx = ((u16*)(uintptr_t)devAddr)[2];
+                vinfo->num_instruments = BSWAP16(((u16*)(uintptr_t)devAddr)[0]);
+                vinfo->num_drums = BSWAP16(((u16*)(uintptr_t)devAddr)[1]);
+                vinfo->num_sfx = BSWAP16(((u16*)(uintptr_t)devAddr)[2]);
                 devAddr += 0x10;
             }
         }
 
         if (medium == MEDIUM_DISK) {
-            Nas_BgCopyDisk(header->medium, (u8*)(uintptr_t)devAddr, ramAddr, size, medium, n_chunks, ret_queue,
+            Nas_BgCopyDisk(header->medium, (u8*)devAddr, ramAddr, size, medium, n_chunks, ret_queue,
                            MK_BGLOAD_MSG(ret_data, table_type, link_id, asyncLoadStatus));
         } else {
-            Nas_BgCopyReq((u8*)(uintptr_t)devAddr, ramAddr, size, medium, n_chunks, ret_queue,
+            Nas_BgCopyReq((u8*)devAddr, ramAddr, size, medium, n_chunks, ret_queue,
                           MK_BGLOAD_MSG(ret_data, table_type, link_id, asyncLoadStatus));
         }
         loadStatus = LOAD_STATUS_IN_PROGRESS;
@@ -1961,8 +1978,8 @@ void Nas_BgDmaFrameWork(s32 reset_status) {
 // @unused Nas_SetDiskHandler__FPFv_l -> void Nas_SetRomHandler(void (*disk_handler)(s32));
 // @unused Nas_SetRomHandler__FPFv_l -> void Nas_SetSyncHandler__FPFv_PUc(void (*rom_handler)(u8*));
 
-static void* Nas_GetSyncDummy(u8* param0, s32 param1) {
-    return NULL;
+static s32 Nas_GetSyncDummy(u8* param0, s32 param1) {
+    return 0;
 }
 
 static void __SetVlute(s32 bank_id) {
@@ -2017,13 +2034,13 @@ void Nas_InitAudio(u64* heap_p, s32 heap_size) {
     AG.num_waveloads = 0;
 
 #ifdef TARGET_PC
-    /* Capture base pointer for 64-bit recovery and reset swap state. */
+    /* Fresh process-wide swap tracking state at audio boot. */
     pc_reset_envdat_visited_all();
 #endif
 
     AG.audio_heap_p = heap_p;
     AG.audio_heap_size = heap_size;
-    OSReport("AUDIOHEAP SET ADDR %xh (SIZE %xh) \n", (uintptr_t)heap_p, heap_size);
+    OSReport("AUDIOHEAP SET ADDR %xh (SIZE %xh) \n", (u32)heap_p, heap_size);
     OSReport(" FIXSIZE  %x \n", AGC.fixSize);
     OSReport(" EMEMSIZE %x \n", AGC.ememSize);
     OSReport(" MAXCHAN  %d \n", AGC.maxChan);
@@ -2056,9 +2073,9 @@ void Nas_InitAudio(u64* heap_p, s32 heap_size) {
     wave_p = NULL;
 
     if (AG.data_header->numEntries != 0) {
-        seq_p = (u8*)(uintptr_t)AG.data_header->entries[SEQUENCE_TABLE].addr;
-        bank_p = (u8*)(uintptr_t)AG.data_header->entries[BANK_TABLE].addr;
-        wave_p = (u8*)(uintptr_t)AG.data_header->entries[WAVE_TABLE].addr;
+        seq_p = (u8*)AG.data_header->entries[SEQUENCE_TABLE].addr;
+        bank_p = (u8*)AG.data_header->entries[BANK_TABLE].addr;
+        wave_p = (u8*)AG.data_header->entries[WAVE_TABLE].addr;
     }
 
     Nas_BankHeaderInit(AG.seq_header, seq_p, MEDIUM_RAM);
@@ -2587,7 +2604,7 @@ static void __WaveTouch(wtstr* wavetouch_str, u32 ram_addr, WaveMedia* wave_medi
         (void)0; /* label needs a statement */
     }
 #else /* !TARGET_PC */
-    if ((uintptr_t)wavetouch_str->wavetable <= OS_BASE_CACHED) {
+    if ((u32)wavetouch_str->wavetable <= OS_BASE_CACHED) {
         // wave is not relocated
         reloc = (void*)((uintptr_t)wavetouch_str->wavetable + ram_addr);
         wavetouch_str->wavetable = (smzwavetable*)reloc;
@@ -2602,12 +2619,12 @@ static void __WaveTouch(wtstr* wavetouch_str, u32 ram_addr, WaveMedia* wave_medi
 
             switch (wavetable->medium) {
                 case MEDIUM_RAM:
-                    reloc = (void*)((uintptr_t)wavetable->sample + (u32)wave_media->wave0_p);
+                    reloc = (void*)((uintptr_t)wavetable->sample + (uintptr_t)wave_media->wave0_p);
                     wavetable->sample = (u8*)reloc;
                     wavetable->medium = wave_media->wave0_media;
                     break;
                 case MEDIUM_DISK:
-                    reloc = (void*)((uintptr_t)wavetable->sample + (u32)wave_media->wave1_p);
+                    reloc = (void*)((uintptr_t)wavetable->sample + (uintptr_t)wave_media->wave1_p);
                     wavetable->sample = (u8*)reloc;
                     wavetable->medium = wave_media->wave1_media;
                     break;
@@ -2746,23 +2763,22 @@ s32 Nas_BankOfsToAddr(s32 bank_id, u8* ctrl_p, WaveMedia* wave_media, s32 async)
 s32 Nas_CheckBgWave(s32 reset_status) {
     smzwavetable* wavetable;
     Bgloadreq* preload;
-    OSMesg msg;
-    uintptr_t preload_idx;
+    u32 preload_idx;
     s32 key;
     s32 n_chunks;
 
     if (AG.num_requested_samples > 0) {
         if (reset_status != 0) {
-            Z_osRecvMesg(&AG.preload_sample_queue, &msg, OS_MESG_NOBLOCK);
+            Z_osRecvMesg(&AG.preload_sample_queue, (OSMesg*)&preload_idx, OS_MESG_NOBLOCK);
             AG.num_requested_samples = 0;
             return FALSE;
         }
 
-        if (Z_osRecvMesg(&AG.preload_sample_queue, &msg, OS_MESG_NOBLOCK) == -1) {
+        if (Z_osRecvMesg(&AG.preload_sample_queue, (OSMesg*)&preload_idx, OS_MESG_NOBLOCK) == -1) {
             return FALSE;
         }
 
-        preload_idx = (uintptr_t)msg >> 24;
+        preload_idx >>= 24;
         preload = &AG.requested_samples[preload_idx];
 
         if (!preload->is_free) {
@@ -3009,12 +3025,10 @@ void MK_load(s32 table_type, s32 id, u8* done_p) {
 
 void MK_FrameWork(void) {
     s32 idx;
-    OSMesg msg;
-    uintptr_t ret;
+    u32 ret;
     u8* rmes;
 
-    if (Z_osRecvMesg(&MK_QUEUE, &msg, OS_MESG_NOBLOCK) != -1) {
-        ret = (uintptr_t)msg;
+    if (Z_osRecvMesg(&MK_QUEUE, (OSMesg*)&ret, OS_MESG_NOBLOCK) != -1) {
         idx = ret >> 24;
         rmes = MK_RMES[idx];
         if (rmes != NULL) {
