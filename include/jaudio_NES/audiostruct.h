@@ -79,15 +79,18 @@ typedef struct ALHeap {
     /* 0x10 */ u8* last;
 } ALHeap;
 
-/* sizeof(ArcEntry) == 0x10 (32-bit), 0x18 (64-bit PC) */
+/* sizeof(ArcEntry) == 0x10.
+ * Fixed-width 32-bit fields to match Big-Endian binary headers in ROM assets.
+ * On 64-bit PC, uintptr_t addresses for relocated RAM/ARAM assets are stored
+ * in a separate host-side parallel array to avoid corrupting header stride. */
 typedef struct ArcEntry_ {
-    /* 0x00 */ uintptr_t addr;
-    /* 0x04/08 */ s32 size;
-    /* 0x08/0C */ s8 medium;
-    /* 0x09/0D */ s8 cacheType;
-    /* 0x0A/0E */ s16 param0;
-    /* 0x0C/10 */ s16 param1;
-    /* 0x0E/12 */ s16 param2;
+    /* 0x00 */ u32 addr;
+    /* 0x04 */ s32 size;
+    /* 0x08 */ s8 medium;
+    /* 0x09 */ s8 cacheType;
+    /* 0x0A */ s16 param0;
+    /* 0x0C */ s16 param1;
+    /* 0x0E */ s16 param2;
 } ArcEntry;
 
 /* sizeof(ArcHeader) == [0x10, 0x10+entries*0x10] */
@@ -861,7 +864,15 @@ typedef struct AudioGlobals {
     /* 0x2854 */ ArcHeader* bank_header;
     /* 0x2858 */ ArcHeader* wave_header;
     /* 0x285C */ ArcHeader* data_header;
+#ifdef TARGET_PC
+    /* Parallel arrays for 64-bit relocated pointers from archive headers */
+    /* 0x2860 */ uintptr_t* seq_relocs;
+    /* 0x2868 */ uintptr_t* bank_relocs;
+    /* 0x2870 */ uintptr_t* wave_relocs;
+    /* 0x2878 */ u16* map_header;
+#else
     /* 0x2860 */ u16* map_header;
+#endif
     /* 0x2864 */ u16 num_sequences;
     /* 0x2868 */ voiceinfo* voice_info;
     /* 0x286C */ audioparams audio_params;

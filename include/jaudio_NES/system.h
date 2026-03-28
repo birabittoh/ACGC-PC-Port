@@ -21,11 +21,7 @@ typedef void* (*Na_SyncProc)(u8* param0, s32 param1);
 extern "C" {
 #endif
 
-#ifdef TARGET_PC
 extern void* Nas_WaveDmaCallBack(uintptr_t device_addr, u32 size, s32 arg2, u8* waveload_idx, s32 medium);
-#else
-extern void* Nas_WaveDmaCallBack(u32 device_addr, u32 size, s32 arg2, u8* waveload_idx, s32 medium);
-#endif
 extern void Nas_InitAudio(u64* acmdBuf, s32 acmdBufSize);
 extern void Nas_FastCopy(u8* SrcAddr, u8* DestAdd, size_t Length, s32 medium);
 extern void Nas_FastDiskCopy(u8* SrcAddr, u8* DestAdd, size_t Length, s32 medium);

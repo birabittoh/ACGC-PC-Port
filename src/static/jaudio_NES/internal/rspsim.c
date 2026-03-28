@@ -49,7 +49,6 @@ static s16 AD4[16] = {
 static void Jac_Resample16(s16* input_L_channel, s16* input_R_channel, s16* output_interleaved, s32 input_sample_count,
                            s32 output_sample_count, s16* history_buffer, u16* position_p, s32 is_first_block);
 
-#ifdef TARGET_PC
 extern void RspStart2(Acmd* task, s32 tasks, s32 mode) {
     static Acmd* taskp;
     static s32 alltasks;
@@ -63,27 +62,13 @@ extern void RspStart2(Acmd* task, s32 tasks, s32 mode) {
     if (alltasks > 0) {
         consumes = RspStart(taskp, alltasks);
         alltasks -= consumes;
+#ifdef TARGET_PC
         taskp += consumes;
-    }
-}
 #else
-extern void RspStart2(u32* task, s32 tasks, s32 mode) {
-    static u32* taskp;
-    static s32 alltasks;
-    static s32 consumes;
-
-    if (mode == RSPSIM_MODE_INIT) {
-        taskp = task;
-        alltasks = tasks;
-    }
-
-    if (alltasks > 0) {
-        consumes = RspStart((Acmd*)taskp, alltasks);
-        alltasks -= consumes;
-        taskp += consumes * 2;
+        taskp += (consumes * 2);
+#endif
     }
 }
-#endif
 
 #define DMEM_OFS(ofs) ((s16*)&((u8*)DMEM)[(ofs)])
 

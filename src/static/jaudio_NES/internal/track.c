@@ -1474,7 +1474,7 @@ static void Nas_SubSeq(sub* subtrack) {
                                 subtrack->reverb_idx = cmdArgU8;
                                 break;
                             case SUBTRACK_CMD_DYNTBL_CALL: // dynamic call
-                                if (m->value != -1) {
+                                if (m->value != -1 && m->depth < ARRAY_COUNT(m->stack)) {
                                     data = (*subtrack->dyn_tbl)[m->value];
                                     /* @BUG - missing stack depth bounds check */
                                     m->stack[m->depth++] = m->pc;

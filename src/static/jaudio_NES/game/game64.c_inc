@@ -2882,7 +2882,9 @@ void Na_VoiceSe(u8 a, u8 b, u8 c, s16 voice, u8 scale, u8 f) {
                         } break;
                         default: {
                             sou_nobasu_count = 0;
-                            sou_now_boin = SHIIN2BOIN[a];
+                            if (a < ARRAY_COUNT(SHIIN2BOIN)) {
+                                sou_now_boin = SHIIN2BOIN[a];
+                            }
                         } break;
                     }
                 }
@@ -3085,9 +3087,9 @@ void Na_OngenPos(uintptr_t id, u8 index, u16 angle, f32 distance) {
 
         //! @BUG: should be ARRAY_COUNT(sou_lev_ongen_data), reading unknown data
         if (index == 0xb) {
-            for (i = 0; i < ARRAY_COUNT(sou_ongen_entry); i++) {
+            for (i = 0; i < ARRAY_COUNT(sou_lev_ongen_data); i++) {
                 if (sou_lev_ongen_data[i]._08 == 0xc) {
-                    for (j = 0; j < ARRAY_COUNT(sou_ongen_entry); j++) {
+                    for (j = 0; j < ARRAY_COUNT(sou_lev_ongen_data); j++) {
                         if (sou_lev_ongen_data[j]._08 == 0xb && sou_lev_ongen_data[j].distance < distance) {
                             return;
                         }
