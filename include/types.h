@@ -112,8 +112,10 @@ typedef u32 unknown;
 #define NULL 0
 #endif
 #endif
-#if !defined(__cplusplus) && !defined(nullptr)
+#ifndef nullptr
+#if !defined(__cplusplus)
 #define nullptr 0
+#endif
 #endif
 
 // #ifdef __MWERKS__

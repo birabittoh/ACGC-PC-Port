@@ -152,12 +152,14 @@ static int g_stat_neg_hits = 0;
 #define TEXPACK_MAP_SIZE  (1 << TEXPACK_MAP_BITS)  /* 32768 */
 #define TEXPACK_MAP_MASK  (TEXPACK_MAP_SIZE - 1)
 
+#define TEXPACK_PATH_MAX 4096
+
 typedef struct {
     xxh_u64 data_hash;
     xxh_u64 tlut_hash;
     xxh_u32 gc_fmt;
     xxh_u32 orig_w, orig_h;
-    char    filepath[260];
+    char    filepath[TEXPACK_PATH_MAX];
     int     occupied;
 } TexPackEntry;
 
@@ -174,7 +176,7 @@ typedef struct {
     xxh_u64 data_hash;
     xxh_u32 gc_fmt;
     xxh_u32 orig_w, orig_h;
-    char    filepath[260];
+    char    filepath[TEXPACK_PATH_MAX];
     int     occupied;
 } TexPackWildcardEntry;
 
@@ -212,8 +214,8 @@ static void texpack_insert(xxh_u64 data_hash, xxh_u64 tlut_hash, xxh_u32 fmt,
             g_texpack_map[idx].gc_fmt = fmt;
             g_texpack_map[idx].orig_w = w;
             g_texpack_map[idx].orig_h = h;
-            strncpy(g_texpack_map[idx].filepath, filepath, 259);
-            g_texpack_map[idx].filepath[259] = '\0';
+            strncpy(g_texpack_map[idx].filepath, filepath, TEXPACK_PATH_MAX - 1);
+            g_texpack_map[idx].filepath[TEXPACK_PATH_MAX - 1] = '\0';
             g_texpack_map[idx].occupied = 1;
             g_texpack_count++;
             break;
@@ -251,8 +253,8 @@ static void texpack_insert_wildcard(xxh_u64 data_hash, xxh_u32 fmt,
             g_texpack_wc_map[idx].gc_fmt = fmt;
             g_texpack_wc_map[idx].orig_w = w;
             g_texpack_wc_map[idx].orig_h = h;
-            strncpy(g_texpack_wc_map[idx].filepath, filepath, 259);
-            g_texpack_wc_map[idx].filepath[259] = '\0';
+            strncpy(g_texpack_wc_map[idx].filepath, filepath, TEXPACK_PATH_MAX - 1);
+            g_texpack_wc_map[idx].filepath[TEXPACK_PATH_MAX - 1] = '\0';
             g_texpack_wc_map[idx].occupied = 1;
             g_texpack_count++;
             break;
@@ -350,7 +352,7 @@ static int parse_texpack_filename(const char* name, xxh_u32* w, xxh_u32* h,
 #undef far
 
 static void scan_directory(const char* dir_path) {
-    char search_path[300];
+    char search_path[TEXPACK_PATH_MAX];
     snprintf(search_path, sizeof(search_path), "%s\\*", dir_path);
 
     WIN32_FIND_DATAA fd;
@@ -360,7 +362,7 @@ static void scan_directory(const char* dir_path) {
     do {
         if (fd.cFileName[0] == '.') continue;
 
-        char full_path[300];
+        char full_path[TEXPACK_PATH_MAX];
         snprintf(full_path, sizeof(full_path), "%s\\%s", dir_path, fd.cFileName);
 
         if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
@@ -398,7 +400,7 @@ static void scan_directory(const char* dir_path) {
     while ((ent = readdir(d)) != NULL) {
         if (ent->d_name[0] == '.') continue;
 
-        char full_path[300];
+        char full_path[TEXPACK_PATH_MAX];
         snprintf(full_path, sizeof(full_path), "%s/%s", dir_path, ent->d_name);
 
         struct stat st;
@@ -679,6 +681,18 @@ static void check_compressed_texture_support(void) {
         if (strcmp(ext, "GL_ARB_texture_compression_bptc") == 0) g_has_bc7 = 1;
         if (strcmp(ext, "GL_EXT_texture_compression_s3tc") == 0) g_has_s3tc = 1;
     }
+
+    /* Fallback for macOS arm64 where extensions might not be listed */
+    if (!g_has_bc7) {
+        GLint supported = 0;
+        glGetInternalformativ(GL_TEXTURE_2D, GL_COMPRESSED_RGBA_BPTC_UNORM, GL_INTERNALFORMAT_SUPPORTED, 1, &supported);
+        if (supported) g_has_bc7 = 1;
+    }
+    if (!g_has_s3tc) {
+        GLint supported = 0;
+        glGetInternalformativ(GL_TEXTURE_2D, GL_COMPRESSED_RGBA_S3TC_DXT1_EXT, GL_INTERNALFORMAT_SUPPORTED, 1, &supported);
+        if (supported) g_has_s3tc = 1;
+    }
 }
 
 static void xxhash64_selftest(void) {
@@ -921,7 +935,7 @@ static unsigned char* load_dds_raw(const char* filepath, xxh_u32* out_w, xxh_u32
 /* Preload entry info for cache building */
 typedef struct {
     xxh_u64 cache_key;
-    char filepath[260];
+    char filepath[TEXPACK_PATH_MAX];
 } PreloadEntry;
 
 void pc_texture_pack_preload_all(void) {
