@@ -1009,6 +1009,12 @@ static void pc_set_entry_addr(ArcHeader* header, s32 idx, uintptr_t addr) {
 void Nas_BankHeaderInit(ArcHeader* header, u8* data, u16 medium) {
     s32 i;
 
+#ifdef TARGET_PC
+    /* Byte-swap header fields in-place (BE in ROM) */
+    header->numEntries = pc_bswap16(header->numEntries);
+    header->medium = pc_bswap16(header->medium);
+#endif
+
     header->medium = medium;
     header->pData = data;
 
@@ -1022,8 +1028,16 @@ void Nas_BankHeaderInit(ArcHeader* header, u8* data, u16 medium) {
 
     for (i = 0; i < header->numEntries; i++) {
 #ifdef TARGET_PC
-        uintptr_t addr = (uintptr_t)header->entries[i].addr;
-        if (header->entries[i].size != 0 && header->entries[i].medium == MEDIUM_CART) {
+        /* Swap entry fields in-place (BE in ROM) */
+        ArcEntry* entry = &header->entries[i];
+        entry->addr = pc_bswap32(entry->addr);
+        entry->size = pc_bswap32(entry->size);
+        entry->param0 = pc_bswap16(entry->param0);
+        entry->param1 = pc_bswap16(entry->param1);
+        entry->param2 = pc_bswap16(entry->param2);
+
+        uintptr_t addr = (uintptr_t)entry->addr;
+        if (entry->size != 0 && entry->medium == MEDIUM_CART) {
             addr += (uintptr_t)data;
         }
         pc_set_entry_addr(header, i, addr);
@@ -1557,10 +1571,10 @@ static ArcHeader* __Get_ArcHeader(s32 table_type) {
 
 #ifdef TARGET_PC
 #define OFS2RAM(base, ofs) ((uintptr_t)(ofs) + (uintptr_t)base)
-#define BANK_ENTRY(ctrl, idx) (((u32*)((uintptr_t)(ctrl))) + (idx))
+#define BANK_ENTRY(ctrl, idx) (((u32*)((uintptr_t)ctrl)) + idx)
 #else
 #define OFS2RAM(base, ofs) ((u32)(ofs) + (u32)base)
-#define BANK_ENTRY(ctrl, idx) (((u32*)((u32)(ctrl))) + (idx))
+#define BANK_ENTRY(ctrl, idx) (((u32*)((u32)ctrl)) + idx)
 #endif
 
 static void Nas_BankOfsToAddr_Inner(s32 bank_id, u8* ctrl_p, WaveMedia* wave_media) {

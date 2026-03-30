@@ -10,8 +10,8 @@
 typedef struct DVDCall_ {
     u32 owner;
     char fileName[64];
-    uintptr_t dst;
-    uintptr_t src;
+    u32 dst;
+    u32 src;
     u32 length;
     u32* callbackStatus;
     Jac_DVDCallback callback;
@@ -195,7 +195,7 @@ extern s32 DVDT_LoadtoARAM_Main(void* arg) {
     return 0;
 }
 
-extern s32 DVDT_LoadtoARAM(u32 owner, char* name, uintptr_t dst, uintptr_t src, u32 length, u32* status, Jac_DVDCallback callback) {
+extern s32 DVDT_LoadtoARAM(u32 owner, char* name, u32 dst, u32 src, u32 length, u32* status, Jac_DVDCallback callback) {
     DVDCall call;
     call.owner = owner;
     DVDT_ExtendPath(call.fileName, name);
@@ -206,7 +206,7 @@ extern s32 DVDT_LoadtoARAM(u32 owner, char* name, uintptr_t dst, uintptr_t src, 
     call.src = src;
     call.length = length;
 
-    DVDT_AddTask(DVDT_LoadtoARAM_Main, (void*)&call, sizeof(DVDCall));
+    DVDT_AddTask(DVDT_LoadtoARAM_Main, (void*)&call, 0x58);
     return 0;
 }
 
@@ -226,7 +226,7 @@ extern s32 DVDT_DRAMtoARAM_Main(void* arg) {
     return 0;
 }
 
-extern s32 DVDT_ARAMtoDRAM(u32 owner, uintptr_t dst, uintptr_t src, u32 length, u32* status, Jac_DVDCallback callback) {
+extern s32 DVDT_ARAMtoDRAM(u32 owner, u32 dst, u32 src, u32 length, u32* status, Jac_DVDCallback callback) {
     DVDCall call;
     call.owner = owner;
     call.dst = dst;
@@ -235,11 +235,11 @@ extern s32 DVDT_ARAMtoDRAM(u32 owner, uintptr_t dst, uintptr_t src, u32 length, 
     call.callback = callback;
     call.src = src;
     call.length = length;
-    DVDT_AddTaskHigh(DVDT_ARAMtoDRAM_Main, (void*)&call, sizeof(DVDCall));
+    DVDT_AddTaskHigh(DVDT_ARAMtoDRAM_Main, (void*)&call, 0x58);
     return 0;
 }
 
-extern s32 DVDT_DRAMtoARAM(u32 owner, uintptr_t dst, uintptr_t src, u32 length, u32* status, Jac_DVDCallback callback) {
+extern s32 DVDT_DRAMtoARAM(u32 owner, u32 dst, u32 src, u32 length, u32* status, Jac_DVDCallback callback) {
     DVDCall call;
     call.owner = owner;
     call.dst = dst;
@@ -248,7 +248,7 @@ extern s32 DVDT_DRAMtoARAM(u32 owner, uintptr_t dst, uintptr_t src, u32 length, 
     call.callback = callback;
     call.src = src;
     call.length = length;
-    DVDT_AddTaskHigh(DVDT_DRAMtoARAM_Main, (void*)&call, sizeof(DVDCall));
+    DVDT_AddTaskHigh(DVDT_DRAMtoARAM_Main, (void*)&call, 0x58);
     return 0;
 }
 

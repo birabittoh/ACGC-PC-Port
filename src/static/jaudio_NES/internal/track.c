@@ -6,6 +6,9 @@
 #include "jaudio_NES/memory.h"
 #include "jaudio_NES/sub_sys.h"
 #include "jaudio_NES/system.h"
+#ifdef TARGET_PC
+#include "pc_bswap.h"
+#endif
 #include "dolphin/os.h"
 
 #define COMMON_SCRIPT_END -1
@@ -1476,6 +1479,7 @@ static void Nas_SubSeq(sub* subtrack) {
                             case SUBTRACK_CMD_DYNTBL_CALL: // dynamic call
                                 if (m->value != -1 && m->depth < ARRAY_COUNT(m->stack)) {
                                     data = (*subtrack->dyn_tbl)[m->value];
+                                    /* @BUG - missing stack depth bounds check */
                                     m->stack[m->depth++] = m->pc;
                                     cmdArgU16 = (u16)((data[0] << 8) + data[1]);
                                     m->pc = &grp->seq_data[cmdArgU16];
@@ -1543,6 +1547,12 @@ static void Nas_SubSeq(sub* subtrack) {
                                 cmdArgU16 = (u16)cmdArgs[0];
                                 data = &grp->seq_data[cmdArgU16];
                                 subtrack->filter = (s16*)data;
+#ifdef TARGET_PC
+                                /* Filter taps in sequence data are BE s16. Swap in-place. */
+                                for (int f_idx = 0; f_idx < 8; f_idx++) {
+                                    subtrack->filter[f_idx] = pc_bswap16(subtrack->filter[f_idx]);
+                                }
+#endif
                                 break;
                             case SUBTRACK_CMD_CLEAR_FILTER: // clear filter
                                 subtrack->filter = nullptr;

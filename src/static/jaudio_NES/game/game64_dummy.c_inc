@@ -171,7 +171,7 @@ void __OK(u32 a) {
     int unused1 = Jaq_StartSeq((u8)r31);
 }
 
-uintptr_t bootsound_ptr;
+u32 bootsound_ptr;
 u32 bootsound_size;
 
 u32 dummy_callback(char* a, u32 b, u32 c, u32* d, jaheap_* e) {
@@ -200,7 +200,7 @@ extern int Bank_Regist(void*, u32);
 }
 #endif
 
-void BootSound(uintptr_t a, u32 b) {
+void BootSound(u32 a, u32 b) {
     bootsound_ptr = a;
     bootsound_size = b;
     Bank_Init();

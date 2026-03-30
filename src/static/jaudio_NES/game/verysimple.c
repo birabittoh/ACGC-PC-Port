@@ -6,7 +6,7 @@
 #include "jaudio_NES/connect.h"
 #include "jaudio_NES/jammain_2.h"
 
-extern void Jac_Start(void* heap, size_t heap_size, u32 aram_size) {
+extern void Jac_Start(void* heap, u32 heap_size, u32 aram_size) {
     StartAudioThread(heap, heap_size, aram_size, AUDIO_THREAD_FLAG_DVD | AUDIO_THREAD_FLAG_AUDIO | AUDIO_THREAD_FLAG_NEOS);
     Jac_WaveDirectorySet("/");
     Jac_PlayInit();

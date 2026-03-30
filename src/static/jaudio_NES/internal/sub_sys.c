@@ -134,7 +134,7 @@ static void Nap_AudioSysProcess(AudioPort* port) {
                 NA_SOUND_CALLBACK = (SOUND_CALLBACK)port->param.asVoidPtr;
             } else if (port->command.arg2 == AUDIO_CALLBACK_DACOUT) {
                 NA_DACOUT_CALLBACK = (DACOUT_CALLBACK)port->param.asVoidPtr;
-            } else if (port->command.arg2 < ARRAY_COUNT(AG.seq_callbacks)) {
+            } else {
                 AG.seq_callbacks[port->command.arg2] = (SequenceCallback)port->param.asVoidPtr;
             }
             break;
@@ -161,7 +161,11 @@ static void Nap_AudioSysProcess(AudioPort* port) {
             Nas_SzStayDelete(port->param.asS32);
             break;
         case AUDIOCMD_SET_EXTERNAL_POINTER:
+#ifdef TARGET_PC
+            Nas_SetExtPointer(port->command.arg0, port->command.arg1, port->command.arg2, (uintptr_t)port->param.asVoidPtr);
+#else
             Nas_SetExtPointer(port->command.arg0, port->command.arg1, port->command.arg2, port->param.asS32);
+#endif
             break;
         case AUDIOCMD_SET_DELAY_LINE_PARAM:
             Nas_SetDelayLineParam(port->command.arg1, port->command.arg0, port->param.asS32, FALSE);

@@ -48,7 +48,7 @@ extern void pc_audio_mq_init(void);
 /* Defined in pc_audio.c — starts the audio producer thread */
 extern void pc_audio_start_producer_thread(void);
 
-extern void StartAudioThread(void* pHeap, size_t heapSize, u32 aramSize, u32 flags) {
+extern void StartAudioThread(void* pHeap, s32 heapSize, u32 aramSize, u32 flags) {
     u32 neos_flag;
 
     /* Init thread-safe message queues before any audio processing */
