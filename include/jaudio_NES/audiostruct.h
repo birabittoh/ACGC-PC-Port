@@ -869,7 +869,8 @@ typedef struct AudioGlobals {
     /* 0x2860 */ uintptr_t* seq_relocs;
     /* 0x2868 */ uintptr_t* bank_relocs;
     /* 0x2870 */ uintptr_t* wave_relocs;
-    /* 0x2878 */ u16* map_header;
+    /* 0x2878 */ uintptr_t* data_relocs;
+    /* 0x2880 */ u16* map_header;
 #else
     /* 0x2860 */ u16* map_header;
 #endif

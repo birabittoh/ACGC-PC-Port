@@ -8,6 +8,7 @@
 #include "jaudio_NES/system.h"
 #ifdef TARGET_PC
 #include "pc_bswap.h"
+#include "jaudio_NES/audiowork.h"
 #endif
 #include "dolphin/os.h"
 
@@ -1548,9 +1549,14 @@ static void Nas_SubSeq(sub* subtrack) {
                                 data = &grp->seq_data[cmdArgU16];
                                 subtrack->filter = (s16*)data;
 #ifdef TARGET_PC
-                                /* Filter taps in sequence data are BE s16. Swap in-place. */
-                                for (int f_idx = 0; f_idx < 8; f_idx++) {
-                                    subtrack->filter[f_idx] = pc_bswap16(subtrack->filter[f_idx]);
+                                /* Filter taps in sequence data are BE s16. Swap in-place.
+                                 * Since multiple tracks share the same filter data, only swap once.
+                                 * We use bit 15 of the first tap as a "swapped" marker,
+                                 * which is safe because filter taps are normally small. */
+                                if (subtrack->filter[0] != 0 && (subtrack->filter[0] & 0x8000) == 0) {
+                                    for (int f_idx = 0; f_idx < 8; f_idx++) {
+                                        subtrack->filter[f_idx] = pc_bswap16(subtrack->filter[f_idx]);
+                                    }
                                 }
 #endif
                                 break;
