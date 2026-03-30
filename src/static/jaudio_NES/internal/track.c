@@ -1476,7 +1476,6 @@ static void Nas_SubSeq(sub* subtrack) {
                             case SUBTRACK_CMD_DYNTBL_CALL: // dynamic call
                                 if (m->value != -1 && m->depth < ARRAY_COUNT(m->stack)) {
                                     data = (*subtrack->dyn_tbl)[m->value];
-                                    /* @BUG - missing stack depth bounds check */
                                     m->stack[m->depth++] = m->pc;
                                     cmdArgU16 = (u16)((data[0] << 8) + data[1]);
                                     m->pc = &grp->seq_data[cmdArgU16];
@@ -1613,7 +1612,7 @@ static void Nas_SubSeq(sub* subtrack) {
                                 subtrack->sample_start_pos = cmdArgs[0];
                                 break;
                             case SUBTRACK_CMD_MACRO_SET_FROM_CALLBACK: // call custom sequence callback and update macro register value
-                                if (cmdArgs[0] <= 4) {
+                                if (cmdArgs[0] < ARRAY_COUNT(AG.seq_callbacks)) {
                                     if (AG.seq_callbacks[cmdArgs[0]] != nullptr) {
                                         NA_CALLBACK = AG.seq_callbacks[cmdArgs[0]];
                                         m->value = (*NA_CALLBACK)(m->value, subtrack);
@@ -2043,7 +2042,7 @@ static void Nas_GroupSeq(group* grp) {
                         }
                     } else if (cmd == GRP_CMD_CALLBACK) {
                         cmd = Nas_ReadByteData(m);
-                        if (cmd <= 4) {
+                        if (cmd < ARRAY_COUNT(AG.seq_callbacks)) {
                             if (AG.seq_callbacks[cmd] != nullptr) {
                                 NA_GRP_CALLBACK = (GRP_CALLBACK)AG.seq_callbacks[cmd];
                                 m->value = (*(GRP_CALLBACK)AG.seq_callbacks[cmd])(m->value, grp);

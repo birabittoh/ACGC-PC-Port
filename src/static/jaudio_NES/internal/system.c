@@ -1557,10 +1557,10 @@ static ArcHeader* __Get_ArcHeader(s32 table_type) {
 
 #ifdef TARGET_PC
 #define OFS2RAM(base, ofs) ((uintptr_t)(ofs) + (uintptr_t)base)
-#define BANK_ENTRY(ctrl, idx) (((u32*)((uintptr_t)ctrl)) + idx)
+#define BANK_ENTRY(ctrl, idx) (((u32*)((uintptr_t)(ctrl))) + (idx))
 #else
 #define OFS2RAM(base, ofs) ((u32)(ofs) + (u32)base)
-#define BANK_ENTRY(ctrl, idx) (((u32*)((u32)ctrl)) + idx)
+#define BANK_ENTRY(ctrl, idx) (((u32*)((u32)(ctrl))) + (idx))
 #endif
 
 static void Nas_BankOfsToAddr_Inner(s32 bank_id, u8* ctrl_p, WaveMedia* wave_media) {

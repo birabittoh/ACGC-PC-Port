@@ -134,7 +134,7 @@ static void Nap_AudioSysProcess(AudioPort* port) {
                 NA_SOUND_CALLBACK = (SOUND_CALLBACK)port->param.asVoidPtr;
             } else if (port->command.arg2 == AUDIO_CALLBACK_DACOUT) {
                 NA_DACOUT_CALLBACK = (DACOUT_CALLBACK)port->param.asVoidPtr;
-            } else {
+            } else if (port->command.arg2 < ARRAY_COUNT(AG.seq_callbacks)) {
                 AG.seq_callbacks[port->command.arg2] = (SequenceCallback)port->param.asVoidPtr;
             }
             break;

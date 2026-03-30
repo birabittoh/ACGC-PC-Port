@@ -10,7 +10,7 @@ typedef struct NA_RHYTHM_BUFFER {
     /* 0x4 */ uintptr_t current_buffer_id;
     /* 0x8 */ s8 unk8;
     /* 0x9 */ s8 unk9;
-    /* 0xA */ u8 unkA[0x2];
+    /* 0xA */ u8 _pad[6]; /* 8-byte alignment padding for 64-bit */
 } NA_RHYTHM_BUFFER;
 
 typedef enum RythmBuffer_State {

@@ -61,6 +61,7 @@ typedef struct SOU_LEV_SE {
     u8 reverbVolume;
     u8 _12;
     u8 echo;
+    u8 _pad[4]; /* 8-byte alignment padding for 64-bit */
 } SOU_LEV_SE;
 
 typedef struct SOU_ONGEN_ENTRY {
@@ -70,6 +71,7 @@ typedef struct SOU_ONGEN_ENTRY {
     u8 pan;
     u8 _09;
     u8 _0A;
+    u8 _pad[3]; /* 8-byte alignment padding for 64-bit */
     f32 distance;
 } SOU_ONGEN_ENTRY;
 
@@ -115,6 +117,7 @@ typedef struct SOU_ROOM_INS {
     u8 _05;
     u8 _06;
     u8 _07;
+    u8 _pad[4]; /* 8-byte alignment padding for 64-bit */
 } SOU_ROOM_INS;
 
 typedef struct SOU_SYS_LEV {
@@ -1647,16 +1650,16 @@ void Sou_SeFadeoutRoutine() {
         if (sou_se_fade[i]._0 == 0xffff) {
             sou_se_fade[i].volumeScale = 0.f;
             sou_se_fade[i]._0 = 0;
-            if (i >= 8 && i <= 14) {
-                sou_lev_se[i].volumeScale = 0.f;
+            if (i >= 8 && i < 8 + ARRAY_COUNT(sou_lev_se)) {
+                sou_lev_se[i - 8].volumeScale = 0.f;
             }
         } else if (sou_se_fade[i]._0 != 0) {
             if (sou_se_fade[i]._0 == sou_se_fade[i]._2) {
                 sou_se_fade[i].volumeScale = 0.f;
                 sou_se_fade[i]._0 = 0xffff;
             } else {
-                v1 = sou_se_fade[i]._2 - sou_se_fade[i]._0;
-                v2 = sou_se_fade[i]._2;
+                v1 = (f32)sou_se_fade[i]._2 - (f32)sou_se_fade[i]._0;
+                v2 = (f32)sou_se_fade[i]._2;
                 sou_se_fade[i].volumeScale = v1 / v2;
                 sou_se_fade[i]._0++;
             }
@@ -1672,16 +1675,16 @@ void Sou_SeFadeinRoutine() {
         if (sou_se_fade[i]._4 == 0xffff) {
             sou_se_fade[i].volumeScale = 1.f;
             sou_se_fade[i]._4 = 0;
-            if (i >= 8 && i <= 14) {
-                sou_lev_se[i].volumeScale = 1.f;
+            if (i >= 8 && i < 8 + ARRAY_COUNT(sou_lev_se)) {
+                sou_lev_se[i - 8].volumeScale = 1.f;
             }
         } else if (sou_se_fade[i]._4 != 0) {
             if (sou_se_fade[i]._4 == sou_se_fade[i]._6) {
                 sou_se_fade[i].volumeScale = 1.f;
                 sou_se_fade[i]._4 = 0xffff;
             } else {
-                v1 = sou_se_fade[i]._6 - sou_se_fade[i]._4;
-                v2 = sou_se_fade[i]._6;
+                v1 = (f32)sou_se_fade[i]._6 - (f32)sou_se_fade[i]._4;
+                v2 = (f32)sou_se_fade[i]._6;
                 sou_se_fade[i].volumeScale = v1 / v2;
                 sou_se_fade[i]._4++;
             }
@@ -1858,7 +1861,7 @@ void Na_InitAudio(void (*fatal_callback)(), u8* load_addr, size_t load_size, u8*
     u32 unused = SetPreCopy_NeosRom(load_addr, load_size, cut_flag);
     Jac_RegisterDVDErrorCallback(Sou_DVD_Error);
     Jac_Start(audiomemory, sizeof(audiomemory), v);
-    BootSound((u32)bootsound, bootsound_size);
+    BootSound((uintptr_t)bootsound, bootsound_size);
     sou_NeosBootCheck_ok = 1;
 }
 
@@ -3452,17 +3455,19 @@ extern void Na_Pause(u8 pauseFlag) {
 
 extern void Na_RhythmPos(uintptr_t index, u8 unused, u16 angle, f32 distance) {
     u8 pan = 0;
-    u8 subtrack = 0;
+    s8 subtrack = 0;
     f32 volume = 0.f;
     if (sou_sub_game_flag != 1) {
-        if (distance > SOU_ONGEN_AREA1) {
-            distance = SOU_ONGEN_AREA1;
-        }
-        pan = angle2pan(angle, distance);
-        volume = distance2vol(distance);
         subtrack = Na_GetRhythmSubTrack(index);
-        NA_COMMAND_AUDIO_SUBTRACK_SET_VOL_SCALE(FTR_INST_GROUP, subtrack, volume);
-        NA_COMMAND_AUDIO_SUBTRACK_SET_PAN(FTR_INST_GROUP, subtrack, pan);
+        if (subtrack != -1) {
+            if (distance > SOU_ONGEN_AREA1) {
+                distance = SOU_ONGEN_AREA1;
+            }
+            pan = angle2pan(angle, distance);
+            volume = distance2vol(distance);
+            NA_COMMAND_AUDIO_SUBTRACK_SET_VOL_SCALE(FTR_INST_GROUP, (u8)subtrack, volume);
+            NA_COMMAND_AUDIO_SUBTRACK_SET_PAN(FTR_INST_GROUP, (u8)subtrack, pan);
+        }
     }
 }
 
