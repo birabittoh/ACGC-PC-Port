@@ -101,7 +101,8 @@ extern s32 RspStart(Acmd* pTaskCmds, s32 allTasks) {
     }
 
     for (i = 0; i < allTasks; i++) {
-        cmd = pTaskCmds++;
+        cmd = pTaskCmds;
+        pTaskCmds++;
         cmdHi = cmd->words.w0;
 
         switch (cmdHi >> 24) {

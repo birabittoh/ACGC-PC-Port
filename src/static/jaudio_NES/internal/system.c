@@ -987,7 +987,6 @@ static uintptr_t pc_get_entry_addr(ArcHeader* header, s32 idx) {
     if (header == AG.seq_header) relocs = AG.seq_relocs;
     else if (header == AG.bank_header) relocs = AG.bank_relocs;
     else if (header == AG.wave_header) relocs = AG.wave_relocs;
-    else if (header == AG.data_header) relocs = AG.data_relocs;
 
     if (relocs && relocs[idx] != 0) return relocs[idx];
     return (uintptr_t)header->entries[idx].addr;
@@ -998,7 +997,6 @@ static void pc_set_entry_addr(ArcHeader* header, s32 idx, uintptr_t addr) {
     if (header == AG.seq_header) relocs = AG.seq_relocs;
     else if (header == AG.bank_header) relocs = AG.bank_relocs;
     else if (header == AG.wave_header) relocs = AG.wave_relocs;
-    else if (header == AG.data_header) relocs = AG.data_relocs;
 
     if (relocs) {
         relocs[idx] = addr;
@@ -1011,6 +1009,12 @@ static void pc_set_entry_addr(ArcHeader* header, s32 idx, uintptr_t addr) {
 void Nas_BankHeaderInit(ArcHeader* header, u8* data, u16 medium) {
     s32 i;
 
+#ifdef TARGET_PC
+    /* Byte-swap header fields in-place (BE in ROM) */
+    header->numEntries = pc_bswap16(header->numEntries);
+    header->medium = pc_bswap16(header->medium);
+#endif
+
     header->medium = medium;
     header->pData = data;
 
@@ -1020,13 +1024,20 @@ void Nas_BankHeaderInit(ArcHeader* header, u8* data, u16 medium) {
     if (header == AG.seq_header) AG.seq_relocs = relocs;
     else if (header == AG.bank_header) AG.bank_relocs = relocs;
     else if (header == AG.wave_header) AG.wave_relocs = relocs;
-    else if (header == AG.data_header) AG.data_relocs = relocs;
 #endif
 
     for (i = 0; i < header->numEntries; i++) {
 #ifdef TARGET_PC
-        uintptr_t addr = (uintptr_t)header->entries[i].addr;
-        if (header->entries[i].size != 0 && header->entries[i].medium == MEDIUM_CART) {
+        /* Swap entry fields in-place (BE in ROM) */
+        ArcEntry* entry = &header->entries[i];
+        entry->addr = pc_bswap32(entry->addr);
+        entry->size = pc_bswap32(entry->size);
+        entry->param0 = pc_bswap16(entry->param0);
+        entry->param1 = pc_bswap16(entry->param1);
+        entry->param2 = pc_bswap16(entry->param2);
+
+        uintptr_t addr = (uintptr_t)entry->addr;
+        if (entry->size != 0 && entry->medium == MEDIUM_CART) {
             addr += (uintptr_t)data;
         }
         pc_set_entry_addr(header, i, addr);
@@ -1222,11 +1233,7 @@ void Nas_SetExtPointer(s32 table_type, s32 idx, s32 param_3, uintptr_t data) {
     if (header->entries[idx].medium == MEDIUM_RAM_UNLOADED) {
         switch (param_3) {
             case EXT_TYPE_DATA:
-#ifdef TARGET_PC
-                pc_set_entry_addr(header, idx, data);
-#else
                 header->entries[idx].addr = data;
-#endif
                 break;
             case EXT_TYPE_SIZE:
                 header->entries[idx].size = data;

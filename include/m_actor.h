@@ -1156,7 +1156,7 @@ struct actor_s {
 
 #define mActor_NONE_PROC1 ((mActor_proc)none_proc1)
 
-typedef struct actor_list_s {
+struct actor_list_s {
     /* 0x00 */ int num_actors;
     /* 0x04 */ ACTOR* actor;
 } Actor_list;

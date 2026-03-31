@@ -1356,7 +1356,8 @@ extern Acmd* Nas_Synth_Envelope(Acmd* cmd, commonch* common, driverch* driver, s
         // curReverbVol = curReverbVolAndFlags & 0x7F;
         Nas_ClearBuffer(cmd++, DMEM_HAAS_TEMP, DMEM_1CH_SIZE);
         Nas_SetEnvParam(cmd++, (curReverbVolAndFlags & 0x7F) * 2, rampReverb, rampLeft, rampRight);
-        Nas_SetEnvParam2(cmd++, curVolLeft, curVolRight);
+        Nas_SetEnvParam2(cmd, curVolLeft, curVolRight);
+        cmd++;
 
         switch (haasEffectDelaySide) {
             case HAAS_EFFECT_DELAY_LEFT:
@@ -1377,6 +1378,10 @@ extern Acmd* Nas_Synth_Envelope(Acmd* cmd, commonch* common, driverch* driver, s
         curReverbVol = (curReverbVolAndFlags << 1) & 0xFE;
         aSetEnvParam(cmd++, (curReverbVol), rampReverb, rampLeft, rampRight);
 
+#ifdef TARGET_PC
+        Nas_SetEnvParam2(cmd, curVolLeft, curVolRight);
+        cmd++;
+#else
         {
             cmd->words.w0 = _SHIFTL(A_CMD_SETENVPARAM2, 24, 8);
             curVolLeft = _SHIFTL(curVolLeft, 16, 16);
@@ -1385,6 +1390,7 @@ extern Acmd* Nas_Synth_Envelope(Acmd* cmd, commonch* common, driverch* driver, s
             // cmd->words.w1 = ((curVolLeft & 0xFFFF) << 16) | (curVolRight & 0xFFFF);
             cmd++;
         }
+#endif
         // aSetEnvParam2(cmd++, curVolLeft & 0xFFFF, curVolRight & 0xFFFF);
         dmemDests = Env_Data_L3;
     }
