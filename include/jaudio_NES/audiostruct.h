@@ -14,7 +14,7 @@ extern "C" {
 typedef struct chnode_ chnode;
 typedef struct link_ link;
 
-/* sizeof(struct link_) == 0x10 (32-bit), 0x20 (64-bit) */
+/* sizeof(struct link_) == 0x10 */
 struct link_ {
     /* 0x00 */ link* prev;
     /* 0x04 */ link* next;
@@ -23,9 +23,6 @@ struct link_ {
         /* 0x08 */ void* pData;  /* when link is node */
     };
     /* 0x0C */ chnode* pNode;
-#if defined(TARGET_PC) && UINTPTR_MAX > 0xFFFFFFFFu
-    u8 _pad[4]; /* alignment padding */
-#endif
 };
 
 /* sizeof(struct chnode_) == 0x40 */
@@ -148,13 +145,10 @@ typedef struct smzwavetable_ {
     /* 0x0C */ adpcmbook* book;
 } smzwavetable;
 
-/* sizeof(wtstr) == 0x08 (32-bit), 0x10 (64-bit) */
+/* sizeof(wtstr) == 0x08 */
 typedef struct wtstr_ {
     /* 0x00 */ smzwavetable* wavetable;
     /* 0x04 */ f32 tuning;
-#if defined(TARGET_PC) && UINTPTR_MAX > 0xFFFFFFFFu
-    u8 _pad[4]; /* alignment padding */
-#endif
 } wtstr;
 
 /* sizeof(phase) == 0x01 */
@@ -210,13 +204,10 @@ typedef struct tmtable_ {
     /* 0x1A */ u16 delay;
 } tmtable;
 
-/* sizeof(envdat) == 0x04 (32-bit), 0x08 (64-bit) */
+/* sizeof(envdat) == 0x04 */
 typedef struct envdat_ {
     /* 0x00 */ s16 delay;
     /* 0x02 */ s16 value;
-#if defined(TARGET_PC) && UINTPTR_MAX > 0xFFFFFFFFu
-    u8 _pad[4]; /* alignment padding */
-#endif
 } envdat;
 
 /* sizeof(envp) == 0x20 */
@@ -243,17 +234,14 @@ typedef struct envp_ {
     /* 0x1C */ envdat* pEnvData;
 } envp;
 
-/* sizeof(env) == 0x08 (32-bit), 0x10 (64-bit) */
+/* sizeof(env) == 0x08 */
 typedef struct env_ {
     /* 0x00 */ u8 decay_idx;
     /* 0x01 */ u8 sustain;
-#if defined(TARGET_PC) && UINTPTR_MAX > 0xFFFFFFFFu
-    u8 _pad[2]; /* alignment padding */
-#endif
     /* 0x04 */ envdat* envelope;
 } env;
 
-/* sizeof(commonch) == 0x20 (32-bit), 0x30 (64-bit) */
+/* sizeof(commonch) == 0x20 */
 typedef struct commonch_ {
     /* 0x00 */ vu8 enabled : 1;
     /* 0x00 */ u8 needs_init : 1;
@@ -283,9 +271,6 @@ typedef struct commonch_ {
     union {
         /* 0x10 */ wtstr* tuned_sample;
         /* 0x10 */ s16* wave_sample_addr; // for synth waves
-#if defined(TARGET_PC) && UINTPTR_MAX > 0xFFFFFFFFu
-    u8 _pad_union[4];
-#endif
     };
     /* 0x14 */ s16* filter;
     /* 0x18 */ u8 _18;
@@ -376,60 +361,47 @@ struct channel_ {
     /* 0xF0 */ u8 _F0[0x10];
 };
 
-/* sizeof(drvparam) == 0x1C (32-bit), 0x28 (64-bit) */
+/* sizeof(drvparam) == 0x1C */
 typedef struct drvparam_ {
     /* 0x00 */ playbackparams playback;
     /* 0x18 */ u8 comb_filter_size;
     /* 0x19 */ u8 _19;
     /* 0x1A */ u16 comb_filter_gain;
-#if defined(TARGET_PC) && UINTPTR_MAX > 0xFFFFFFFFu
-    u8 _pad[4]; /* alignment padding */
-#endif
 } drvparam;
 
-/* sizeof(voicetable) == 0x20 (32-bit), 0x40 (64-bit) */
+/* sizeof(voicetable) == 0x20 */
 typedef struct voicetable_ {
     /* 0x00 */ u8 is_relocated;
     /* 0x01 */ u8 normal_range_low;
     /* 0x02 */ u8 normal_range_high;
     /* 0x03 */ u8 adsr_decay_idx;
-#if defined(TARGET_PC) && UINTPTR_MAX > 0xFFFFFFFFu
-    u8 _pad0[4];
-#endif
     /* 0x04 */ envdat* envelope;
     /* 0x08 */ wtstr low_pitch_tuned_sample;
     /* 0x10 */ wtstr normal_pitch_tuned_sample;
     /* 0x18 */ wtstr high_pitch_tuned_sample;
 } voicetable;
 
-/* sizeof(perctable) == 0x10 (32-bit), 0x20 (64-bit) */
+/* sizeof(perctable) == 0x10 */
 typedef struct perctable_ {
     /* 0x00 */ u8 adsr_decay_idx;
     /* 0x01 */ u8 pan;
     /* 0x02 */ u8 is_relocated;
-    /* 0x03 */ u8 _pad0;
-#if defined(TARGET_PC) && UINTPTR_MAX > 0xFFFFFFFFu
-    u8 _pad1[4];
-#endif
     /* 0x04 */ wtstr tuned_sample;
     /* 0x0C */ envdat* envelope;
 } perctable;
 
-/* sizeof(percvoicetable) == 0x08 (32-bit), 0x10 (64-bit) */
+/* sizeof(percvoicetable) == 0x08 */
 typedef struct percvoicetable_ {
     /* 0x00 */ wtstr tuned_sample;
 } percvoicetable;
 
-/* sizeof(voiceinfo) == 0x14 (32-bit), 0x20 (64-bit) */
+/* sizeof(voiceinfo) == 0x14 */
 typedef struct voiceinfo_ {
     /* 0x00 */ u8 num_instruments;
     /* 0x01 */ u8 num_drums;
     /* 0x02 */ u8 wave_bank_id0;
     /* 0x03 */ u8 wave_bank_id1;
     /* 0x04 */ u16 num_sfx;
-#if defined(TARGET_PC) && UINTPTR_MAX > 0xFFFFFFFFu
-    u8 _pad[2];
-#endif
     /* 0x08 */ voicetable** instruments;
     /* 0x0C */ perctable** percussion;
     /* 0x10 */ percvoicetable* effects;
@@ -449,7 +421,7 @@ typedef struct delayparam_ {
     /* 0x18 */ u16 save_resample_num_samples;
 } delayparam;
 
-/* sizeof(delay) == 0x2D0 (32-bit), 0x480 (64-bit) */
+/* sizeof(delay) == 0x2D0 */
 typedef struct delay_ {
     /* 0x000 */ u8 resample_flags;
     /* 0x001 */ u8 use_reverb;
@@ -492,7 +464,7 @@ typedef struct delay_ {
     /* 0x2A0 */ adpcmloop adpcm_loop;
 } delay;
 
-/* sizeof(macro) == 0x1C (32-bit), 0x38 (64-bit) */
+/* sizeof(macro) == 0x1C */
 typedef struct macro_ {
     /* 0x00 */ u8* pc;
     /* 0x04 */ u8* stack[4];
@@ -511,7 +483,7 @@ typedef union subtrack_updates {
 } subtrack_updates;
 
 /* SubTrack struct */
-/* sizeof(sub) == 0xE0 (32-bit), 0x180 (64-bit) */
+/* sizeof(sub) == 0xE0 */
 typedef struct sub_ {
     /* 0x00 */ u8 enabled : 1;
     /* 0x00 */ u8 finished : 1;
@@ -568,7 +540,7 @@ typedef struct sub_ {
     /* 0xE4 */ u8 _unk[0x100 - 0x0E4];
 } sub;
 
-/* sizeof(group) == 0x160 (32-bit), 0x280 (64-bit) */
+/* sizeof(group) == 0x160 */
 struct group_ {
     struct flags_ {
         /* 0x000 */ u8 enabled : 1;
@@ -615,7 +587,7 @@ struct group_ {
     /* 0x158 */ s8 port[8];
 };
 
-/* sizeof(note) == 0x90 (32-bit), 0x120 (64-bit) */
+/* sizeof(note) == 0x90 */
 struct note_ {
     /* 0x00 */ u8 enabled : 1;
     /* 0x00 */ u8 finished : 1;
@@ -681,12 +653,9 @@ struct note_ {
     /* 0x80 */ link link;
 };
 
-/* sizeof(Bgloadreq) == 0x14 (32-bit), 0x28 (64-bit) */
+/* sizeof(Bgloadreq) == 0x14 */
 typedef struct Bgloadreq_ {
     /* 0x00 */ u32 end_and_medium_key;
-#if defined(TARGET_PC) && UINTPTR_MAX > 0xFFFFFFFFu
-    u8 _pad0[4];
-#endif
     /* 0x04 */ smzwavetable* sample;
     /* 0x08 */ u8* ram_addr;
     /* 0x0C */ u32 encoded_info;
@@ -729,7 +698,7 @@ typedef struct lpscache_ {
     /* 0x4C */ OSIoMesg io_mesg;
 } lpscache;
 
-/* sizeof(WaveLoad) == 0x10 (32-bit), 0x20 (64-bit) */
+/* sizeof(WaveLoad) == 0x10 */
 typedef struct WaveLoad_ {
     /* 0x00 */ u8* ram_addr;
     /* 0x04 */ uintptr_t device_addr;
@@ -738,12 +707,9 @@ typedef struct WaveLoad_ {
     /* 0x0C */ u8 unused;
     /* 0x0D */ u8 reuse_idx;
     /* 0x0E */ u8 time_to_live;
-#if defined(TARGET_PC) && UINTPTR_MAX > 0xFFFFFFFFu
-    u8 _pad[1];
-#endif
 } WaveLoad;
 
-/* sizeof(WaveMedia) == 0x18 (32-bit), 0x30 (64-bit) */
+/* sizeof(WaveMedia) == 0x18 */
 typedef struct WaveMedia_ {
     /* 0x00 */ u32 wave0_bank_id;
     /* 0x04 */ u32 wave1_bank_id;
@@ -819,34 +785,25 @@ typedef struct SwHeap_ {
 } SwHeap;
 
 /* TODO: this needs a better name, I don't see any functions which reference it */
-/* sizeof(ALHeapEntry) == 0xC (32-bit), 0x18 (64-bit) */
+/* sizeof(ALHeapEntry) == 0xC */
 #define HEAP_INVALID_INDEX (0xffffffff)
 typedef struct ALHeapEntry_ {
     /* 0x00 */ u8* addr;
     /* 0x04 */ size_t size;
     /* 0x08 */ s16 table_type;
     /* 0x0A */ s16 id;
-#if defined(TARGET_PC) && UINTPTR_MAX > 0xFFFFFFFFu
-    u8 _pad[4]; /* alignment padding */
-#endif
 } ALHeapEntry;
 
-/* sizeof(SZStay) == 0xD8 (32-bit), 0x1A0 (64-bit) */
+/* sizeof(SZStay) == 0xD8 */
 typedef struct SZStay_ {
     /* 0x00 */ u32 num_entries;
-#if defined(TARGET_PC) && UINTPTR_MAX > 0xFFFFFFFFu
-    u8 _pad[4];
-#endif
     /* 0x04 */ ALHeap heap;
     /* 0x18 */ ALHeapEntry entries[16];
 } SZStay;
 
-/* sizeof(SZAuto) == 0x30 (32-bit), 0x58 (64-bit) */
+/* sizeof(SZAuto) == 0x30 */
 typedef struct SZAuto_ {
     /* 0x00 */ u32 use_entry_idx;
-#if defined(TARGET_PC) && UINTPTR_MAX > 0xFFFFFFFFu
-    u8 _pad[4];
-#endif
     /* 0x04 */ ALHeap heap;
     /* 0x18 */ ALHeapEntry entries[2];
 } SZAuto;
@@ -860,7 +817,7 @@ typedef struct SZHeap_ {
 
 typedef u32 (*SequenceCallback)(s8, sub*);
 
-/* sizeof(AudioGlobals) == 0x92b0 (32-bit), 0xF000? (64-bit) */
+/* sizeof(AudioGlobals) == 0x92b0 */
 typedef struct AudioGlobals {
     /* 0x0000 */ u8 _0000;
     /* 0x0001 */ s8 num_synth_reverbs;
@@ -975,9 +932,6 @@ typedef struct AudioGlobals {
     /* 0x3771 */ u8 spec_id;
     /* 0x3774 */ s32 audio_reset_fadeout_frames_left;
     /* 0x3778 */ f32* adsr_decay_table;
-#if defined(TARGET_PC) && UINTPTR_MAX > 0xFFFFFFFFu
-    u8 _pad_heap[4];
-#endif
     /* 0x377C */ u64* audio_heap_p;
     /* 0x3780 */ s32 audio_heap_size;
     /* 0x3784 */ channel* channels;

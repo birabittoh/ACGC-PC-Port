@@ -43,9 +43,7 @@ typedef struct SOU_LS_STACK {
     u8 _5;
     u8 _6;
     u8 _7;
-#if defined(TARGET_PC) && UINTPTR_MAX > 0xFFFFFFFFu
     u8 _pad[8]; /* 8-byte alignment padding for 64-bit */
-#endif
 } SOU_LS_STACK;
 
 typedef struct SOU_LEV_SE {
@@ -63,7 +61,6 @@ typedef struct SOU_LEV_SE {
     u8 reverbVolume;
     u8 _12;
     u8 echo;
-    u8 _pad[4]; /* 8-byte alignment padding for 64-bit */
 } SOU_LEV_SE;
 
 typedef struct SOU_ONGEN_ENTRY {
@@ -102,7 +99,6 @@ typedef struct SOU_SE_FADE {
 
 typedef struct SOU_VOICE_SE {
     u8 _00;
-    u8 _pad0[3];
     u32 _04;
     f32 _08;
     f32 _0C;
@@ -112,7 +108,6 @@ typedef struct SOU_VOICE_SE {
     f32 frequencyScale;
     u8 pan;
     u8 reverbVolume;
-    u8 _pad1[2]; /* 8-byte alignment padding for 64-bit */
 } SOU_VOICE_SE;
 
 typedef struct SOU_ROOM_INS {
@@ -121,16 +116,13 @@ typedef struct SOU_ROOM_INS {
     u8 _05;
     u8 _06;
     u8 _07;
-#if defined(TARGET_PC) && UINTPTR_MAX > 0xFFFFFFFFu
     u8 _pad[4]; /* 8-byte alignment padding for 64-bit */
-#endif
 } SOU_ROOM_INS;
 
 typedef struct SOU_SYS_LEV {
     u8 id;
     u8 _1;
     u8 _2;
-    u8 _pad[5]; /* 8-byte alignment padding for 64-bit */
 } SOU_SYS_LEV;
 
 // clang-format off
@@ -1337,11 +1329,9 @@ void Sou_Ongen_Lev_Cont() {
 
     for (i = 0; i < ARRAY_COUNT(sou_ongen_entry); i++) {
         if (sou_ongen_entry[i]._00) {
-            found = FALSE;
             for (j = 0; j < ARRAY_COUNT(sou_lev_ongen_data); j++) {
                 if (sou_ongen_entry[i]._00 == sou_lev_ongen_data[j]._04) {
                     found = TRUE;
-                    break;
                 }
             }
 
