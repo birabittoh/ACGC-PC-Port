@@ -479,7 +479,7 @@ static GLuint load_dds_file(const char* filepath, int* out_w, int* out_h) {
                 break;
             case DXGI_FORMAT_R8G8B8A8_UNORM:
             case DXGI_FORMAT_B8G8R8A8_UNORM:
-                gl_internal = GL_RGBA;
+                gl_internal = GL_RGBA8;
                 compressed = 0;
                 break;
             default:
@@ -507,7 +507,7 @@ static GLuint load_dds_file(const char* filepath, int* out_w, int* out_h) {
         xxh_u32 rgb_bit_count;
         memcpy(&rgb_bit_count, header + 88, 4);
         if (rgb_bit_count == 32) {
-            gl_internal = GL_RGBA;
+            gl_internal = GL_RGBA8;
             compressed = 0;
         } else {
             fclose(f);
@@ -551,7 +551,7 @@ static GLuint load_dds_file(const char* filepath, int* out_w, int* out_h) {
                                (GLsizei)dds_width, (GLsizei)dds_height,
                                0, data_size, pixels);
     } else {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, (GLsizei)dds_width, (GLsizei)dds_height,
+        glTexImage2D(GL_TEXTURE_2D, 0, (GLint)gl_internal, (GLsizei)dds_width, (GLsizei)dds_height,
                      0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     }
 
@@ -671,13 +671,33 @@ static void neg_cache_insert(xxh_u64 key) {
 /* --- Public API --- */
 
 static void check_compressed_texture_support(void) {
+    const char* ext_blob = (const char*)glGetString(GL_EXTENSIONS);
+    if (ext_blob) {
+        if (strstr(ext_blob, "GL_ARB_texture_compression_bptc") ||
+            strstr(ext_blob, "GL_EXT_texture_compression_bptc")) {
+            g_has_bc7 = 1;
+        }
+        if (strstr(ext_blob, "GL_EXT_texture_compression_s3tc") ||
+            strstr(ext_blob, "GL_S3_s3tc") ||
+            strstr(ext_blob, "GL_EXT_texture_compression_dxt1")) {
+            g_has_s3tc = 1;
+        }
+    }
+
     GLint num_ext = 0;
     glGetIntegerv(GL_NUM_EXTENSIONS, &num_ext);
     for (GLint i = 0; i < num_ext; i++) {
         const char* ext = (const char*)glGetStringi(GL_EXTENSIONS, i);
         if (!ext) continue;
-        if (strcmp(ext, "GL_ARB_texture_compression_bptc") == 0) g_has_bc7 = 1;
-        if (strcmp(ext, "GL_EXT_texture_compression_s3tc") == 0) g_has_s3tc = 1;
+        if (strcmp(ext, "GL_ARB_texture_compression_bptc") == 0 ||
+            strcmp(ext, "GL_EXT_texture_compression_bptc") == 0) {
+            g_has_bc7 = 1;
+        }
+        if (strcmp(ext, "GL_EXT_texture_compression_s3tc") == 0 ||
+            strcmp(ext, "GL_S3_s3tc") == 0 ||
+            strcmp(ext, "GL_EXT_texture_compression_dxt1") == 0) {
+            g_has_s3tc = 1;
+        }
     }
 }
 
@@ -756,7 +776,7 @@ static int tpc_upload_entry(const TPCEntryHeader* eh, const unsigned char* pixel
                                (GLsizei)eh->width, (GLsizei)eh->height,
                                0, (GLsizei)eh->data_size, pixels);
     } else {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+        glTexImage2D(GL_TEXTURE_2D, 0, (GLint)eh->gl_internal,
                      (GLsizei)eh->width, (GLsizei)eh->height,
                      0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
     }
@@ -872,7 +892,7 @@ static unsigned char* load_dds_raw(const char* filepath, xxh_u32* out_w, xxh_u32
                 gl_internal = GL_COMPRESSED_RGBA_S3TC_DXT5_EXT; compressed = 1; block_size = 16; break;
             case DXGI_FORMAT_R8G8B8A8_UNORM:
             case DXGI_FORMAT_B8G8R8A8_UNORM:
-                gl_internal = GL_RGBA; compressed = 0; break;
+                gl_internal = GL_RGBA8; compressed = 0; break;
             default: fclose(f); return NULL;
         }
     } else if ((pf_flags & DDPF_FOURCC)) {
@@ -886,7 +906,7 @@ static unsigned char* load_dds_raw(const char* filepath, xxh_u32* out_w, xxh_u32
     } else {
         xxh_u32 rgb_bit_count;
         memcpy(&rgb_bit_count, header + 88, 4);
-        if (rgb_bit_count == 32) { gl_internal = GL_RGBA; compressed = 0; }
+        if (rgb_bit_count == 32) { gl_internal = GL_RGBA8; compressed = 0; }
         else { fclose(f); return NULL; }
     }
 
@@ -987,7 +1007,7 @@ void pc_texture_pack_preload_all(void) {
                 glCompressedTexImage2D(GL_TEXTURE_2D, 0, (GLenum)gl_int,
                                        (GLsizei)dds_w, (GLsizei)dds_h, 0, data_size, pixels);
             else
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                glTexImage2D(GL_TEXTURE_2D, 0, (GLint)gl_int,
                              (GLsizei)dds_w, (GLsizei)dds_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
 
             if (glGetError() == GL_NO_ERROR) {
@@ -1044,7 +1064,7 @@ void pc_texture_pack_preload_all(void) {
                 glCompressedTexImage2D(GL_TEXTURE_2D, 0, (GLenum)gl_int,
                                        (GLsizei)dds_w, (GLsizei)dds_h, 0, data_size, pixels);
             else
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                glTexImage2D(GL_TEXTURE_2D, 0, (GLint)gl_int,
                              (GLsizei)dds_w, (GLsizei)dds_h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
 
             if (glGetError() == GL_NO_ERROR) {
