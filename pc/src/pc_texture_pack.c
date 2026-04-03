@@ -147,6 +147,10 @@ static int g_stat_loaded = 0;
 static int g_stat_cache_hits = 0;
 static int g_stat_neg_hits = 0;
 
+static void clear_gl_errors(void) {
+    while (glGetError() != GL_NO_ERROR) {}
+}
+
 /* --- Texture pack file lookup table --- */
 #define TEXPACK_MAP_BITS  15
 #define TEXPACK_MAP_SIZE  (1 << TEXPACK_MAP_BITS)  /* 32768 */
@@ -543,6 +547,7 @@ static GLuint load_dds_file(const char* filepath, int* out_w, int* out_h) {
     }
 
     GLuint tex;
+    clear_gl_errors();
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
 
@@ -671,19 +676,29 @@ static void neg_cache_insert(xxh_u64 key) {
 /* --- Public API --- */
 
 static void check_compressed_texture_support(void) {
-    const char* ext_blob = (const char*)glGetString(GL_EXTENSIONS);
-    if (ext_blob) {
-        if (strstr(ext_blob, "GL_ARB_texture_compression_bptc") ||
-            strstr(ext_blob, "GL_EXT_texture_compression_bptc")) {
-            g_has_bc7 = 1;
-        }
-        if (strstr(ext_blob, "GL_EXT_texture_compression_s3tc") ||
-            strstr(ext_blob, "GL_S3_s3tc") ||
-            strstr(ext_blob, "GL_EXT_texture_compression_dxt1")) {
-            g_has_s3tc = 1;
+    g_has_bc7 = 0;
+    g_has_s3tc = 0;
+
+    /* Most reliable cross-platform check: query supported compressed formats. */
+    GLint num_comp_formats = 0;
+    glGetIntegerv(GL_NUM_COMPRESSED_TEXTURE_FORMATS, &num_comp_formats);
+    if (num_comp_formats > 0 && num_comp_formats < 1024) {
+        GLint* formats = (GLint*)malloc((size_t)num_comp_formats * sizeof(GLint));
+        if (formats) {
+            glGetIntegerv(GL_COMPRESSED_TEXTURE_FORMATS, formats);
+            for (GLint i = 0; i < num_comp_formats; i++) {
+                GLint f = formats[i];
+                if (f == (GLint)GL_COMPRESSED_RGBA_BPTC_UNORM) g_has_bc7 = 1;
+                if (f == (GLint)GL_COMPRESSED_RGBA_S3TC_DXT1_EXT ||
+                    f == (GLint)GL_COMPRESSED_RGBA_S3TC_DXT5_EXT) {
+                    g_has_s3tc = 1;
+                }
+            }
+            free(formats);
         }
     }
 
+    /* Extension-name fallback for drivers that under-report format lists. */
     GLint num_ext = 0;
     glGetIntegerv(GL_NUM_EXTENSIONS, &num_ext);
     for (GLint i = 0; i < num_ext; i++) {
@@ -699,6 +714,8 @@ static void check_compressed_texture_support(void) {
             g_has_s3tc = 1;
         }
     }
+
+    clear_gl_errors();
 }
 
 static void xxhash64_selftest(void) {
@@ -768,6 +785,7 @@ typedef struct {
 /* Upload a single cached texture entry to GL and insert into loaded_cache */
 static int tpc_upload_entry(const TPCEntryHeader* eh, const unsigned char* pixels) {
     GLuint tex;
+    clear_gl_errors();
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
 
@@ -1001,6 +1019,7 @@ void pc_texture_pack_preload_all(void) {
 
             /* Upload to GL */
             GLuint tex;
+            clear_gl_errors();
             glGenTextures(1, &tex);
             glBindTexture(GL_TEXTURE_2D, tex);
             if (comp)
@@ -1058,6 +1077,7 @@ void pc_texture_pack_preload_all(void) {
             TPCEntryHeader eh = { key, gl_int, comp, dds_w, dds_h, (xxh_u32)data_size };
 
             GLuint tex;
+            clear_gl_errors();
             glGenTextures(1, &tex);
             glBindTexture(GL_TEXTURE_2D, tex);
             if (comp)
