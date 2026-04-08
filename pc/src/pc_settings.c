@@ -13,6 +13,8 @@ PCSettings g_pc_settings = {
     .nes_aspect = 1,
 };
 
+static char g_pc_language[32] = "default";
+
 static const char* SETTINGS_FILE = "settings.ini";
 
 static const char* DEFAULT_SETTINGS =
@@ -39,7 +41,13 @@ static const char* DEFAULT_SETTINGS =
     "disable_resetti = 0\n"
     "\n"
     "# NES emulator aspect ratio: 0 = stretch to fullscreen, 1 = 4:3 pillarbox\n"
-    "nes_aspect = 1\n";
+    "nes_aspect = 1\n"
+    "\n"
+    "[Localization]\n"
+    "# Translation profile for archive overrides.\n"
+    "# default = use forest_1st.arc / forest_2nd.arc\n"
+    "# Example: pt-BR => forest_1st.pt-BR.arc / forest_2nd.pt-BR.arc\n"
+    "language = default\n";
 
 static const char* skip_ws(const char* s) {
     while (*s == ' ' || *s == '\t') s++;
@@ -55,7 +63,17 @@ static void trim_end(char* s) {
 }
 
 static void apply_setting(const char* key, const char* value) {
-    int val = atoi(value);
+    int val;
+
+    if (strcmp(key, "language") == 0) {
+        if (*value != '\0') {
+            strncpy(g_pc_language, value, sizeof(g_pc_language) - 1);
+            g_pc_language[sizeof(g_pc_language) - 1] = '\0';
+        }
+        return;
+    }
+
+    val = atoi(value);
 
     if (strcmp(key, "window_width") == 0) {
         if (val >= 640) g_pc_settings.window_width = val;
@@ -115,6 +133,12 @@ void pc_settings_save(void) {
     fprintf(f, "\n");
     fprintf(f, "# NES emulator aspect ratio: 0 = stretch to fullscreen, 1 = 4:3 pillarbox\n");
     fprintf(f, "nes_aspect = %d\n", g_pc_settings.nes_aspect);
+    fprintf(f, "\n");
+    fprintf(f, "[Localization]\n");
+    fprintf(f, "# Translation profile for archive overrides.\n");
+    fprintf(f, "# default = use forest_1st.arc / forest_2nd.arc\n");
+    fprintf(f, "# Example: pt-BR => forest_1st.pt-BR.arc / forest_2nd.pt-BR.arc\n");
+    fprintf(f, "language = %s\n", g_pc_language);
     fclose(f);
     printf("[Settings] Saved %s\n", SETTINGS_FILE);
 }
@@ -173,8 +197,19 @@ void pc_settings_load(void) {
         }
     }
     fclose(f);
-    printf("[Settings] Loaded %s: %dx%d fullscreen=%d vsync=%d msaa=%d preload_textures=%d\n",
+    printf("[Settings] Loaded %s: %dx%d fullscreen=%d vsync=%d msaa=%d preload_textures=%d language=%s\n",
            SETTINGS_FILE, g_pc_settings.window_width, g_pc_settings.window_height,
            g_pc_settings.fullscreen, g_pc_settings.vsync, g_pc_settings.msaa,
-           g_pc_settings.preload_textures);
+           g_pc_settings.preload_textures, g_pc_language);
+}
+
+const char* pc_settings_get_language(void) {
+    return g_pc_language;
+}
+
+void pc_settings_set_language(const char* language) {
+    if (language != NULL && *language != '\0') {
+        strncpy(g_pc_language, language, sizeof(g_pc_language) - 1);
+        g_pc_language[sizeof(g_pc_language) - 1] = '\0';
+    }
 }
