@@ -336,6 +336,8 @@ static void aAL_fade_out_start_wait_init(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
 
 #ifdef PC_ENHANCEMENTS
 static void aAL_pc_game_start_wait(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
+  static const char* kLanguageOptions[] = { "default", "pt-BR", "en", "es", "fr", "de", "it", "ja" };
+  enum { kLanguageOptionsCount = 8 };
   GAME_PLAY* play = (GAME_PLAY*)game;
   f32 dt = (f32)game->graph->dt_num_60fps_frames;
   u16 on_btn = gamePT->pads[PAD0].on.button;
@@ -437,7 +439,7 @@ static void aAL_setupAction(ANIMAL_LOGO_ACTOR* actor, GAME* game, int action) {
     &aAL_back_fadein,
     &aAL_start_key_chk_start_wait,
 #ifdef PC_ENHANCEMENTS
-    (ANIMAL_LOGO_ACTION_PROC)&aAL_pc_game_start_wait,
+    &aAL_pc_game_start_wait,
 #else
     &aAL_game_start_wait,
 #endif
