@@ -2,6 +2,7 @@
 #include "pc_platform.h"
 #include "pc_disc.h"
 #include "pc_settings.h"
+#include <sys/stat.h>
 
 typedef struct {
     char gameName[4];
@@ -35,6 +36,9 @@ static int dvd_entry_count = 0;
 /* File-based fallback path (only used when no disc image) */
 static char assets_base_path[512] = {0};
 static int assets_fallback_inited = 0;
+static char translations_base_path[512] = {0};
+static int translations_fallback_inited = 0;
+static char translations_fallback_language[32] = {0};
 
 typedef enum {
     DVD_LOCALIZED_SOURCE_NONE = 0,
@@ -53,6 +57,7 @@ static int dvd_localized_cache_count = 0;
 static char dvd_localized_cache_language[32] = {0};
 
 static void dvd_init_fallback_path(void);
+static void dvd_init_translations_path(void);
 
 static void dvd_localized_cache_reset(void) {
     memset(dvd_localized_cache, 0, sizeof(dvd_localized_cache));
@@ -107,6 +112,110 @@ static int dvd_is_language_default(void) {
     return (lang == NULL || lang[0] == '\0' || strcmp(lang, "default") == 0);
 }
 
+static int dvd_path_has_language_tag(const char* path, const char* lang) {
+    const char* dot;
+    size_t name_len;
+    size_t lang_len;
+
+    if (path == NULL || path[0] == '\0' || lang == NULL || lang[0] == '\0') {
+        return 0;
+    }
+
+    dot = strrchr(path, '.');
+    if (dot == NULL || dot == path) {
+        return 0;
+    }
+
+    lang_len = strlen(lang);
+    name_len = (size_t)(dot - path);
+    if (name_len <= lang_len + 1) {
+        return 0;
+    }
+
+    if (path[name_len - lang_len - 1] != '.') {
+        return 0;
+    }
+
+    return strncmp(path + name_len - lang_len, lang, lang_len) == 0;
+}
+
+static int dvd_strip_language_tag(const char* path, const char* lang, char* out_path, size_t out_path_size) {
+    const char* dot;
+    size_t lang_len;
+    size_t prefix_len;
+
+    if (!dvd_path_has_language_tag(path, lang) || out_path == NULL || out_path_size == 0) {
+        return 0;
+    }
+
+    dot = strrchr(path, '.');
+    lang_len = strlen(lang);
+    prefix_len = (size_t)(dot - path) - lang_len - 1;
+
+    if (prefix_len + strlen(dot) + 1 > out_path_size) {
+        return 0;
+    }
+
+    memcpy(out_path, path, prefix_len);
+    snprintf(out_path + prefix_len, out_path_size - prefix_len, "%s", dot);
+    return 1;
+}
+
+static int dvd_try_open_from_base(const char* base, const char* path, FILE** out_fp, u32* out_size) {
+    char fullpath[768];
+    FILE* fp;
+    long end_pos;
+
+    if (base == NULL || base[0] == '\0' || path == NULL || out_fp == NULL || out_size == NULL) {
+        return 0;
+    }
+
+    if (path[0] == '/') {
+        snprintf(fullpath, sizeof(fullpath), "%s%s", base, path);
+    } else {
+        snprintf(fullpath, sizeof(fullpath), "%s/%s", base, path);
+    }
+
+    fp = fopen(fullpath, "rb");
+    if (!fp) {
+        return 0;
+    }
+
+    if (fseek(fp, 0, SEEK_END) != 0) {
+        fclose(fp);
+        return 0;
+    }
+
+    end_pos = ftell(fp);
+    if (end_pos < 0) {
+        fclose(fp);
+        return 0;
+    }
+
+    if (fseek(fp, 0, SEEK_SET) != 0) {
+        fclose(fp);
+        return 0;
+    }
+
+    *out_fp = fp;
+    *out_size = (u32)end_pos;
+    return 1;
+}
+
+static int dvd_dir_exists(const char* path) {
+    struct stat st;
+
+    if (path == NULL || path[0] == '\0') {
+        return 0;
+    }
+
+    if (stat(path, &st) != 0) {
+        return 0;
+    }
+
+    return S_ISDIR(st.st_mode) ? 1 : 0;
+}
+
 static int dvd_build_localized_path(const char* path, char* localized_path, size_t localized_path_size) {
     const char* lang;
     const char* dot;
@@ -155,46 +264,34 @@ static int dvd_build_localized_path(const char* path, char* localized_path, size
 }
 
 static int dvd_fallback_file_open(const char* path, FILE** out_fp, u32* out_size) {
-    char fullpath[768];
-    FILE* fp;
-    long end_pos;
+    const char* lang;
+    char stripped_path[256];
 
     if (path == NULL || out_fp == NULL || out_size == NULL) {
         return 0;
     }
 
+    lang = pc_settings_get_language();
+    if (lang != NULL && lang[0] != '\0' && strcmp(lang, "default") != 0 && dvd_path_has_language_tag(path, lang)) {
+        dvd_init_translations_path();
+
+        if (translations_base_path[0] != '\0') {
+            if (dvd_strip_language_tag(path, lang, stripped_path, sizeof(stripped_path))) {
+                if (dvd_try_open_from_base(translations_base_path, stripped_path, out_fp, out_size)) {
+                    return 1;
+                }
+            }
+
+            if (dvd_try_open_from_base(translations_base_path, path, out_fp, out_size)) {
+                return 1;
+            }
+        }
+
+        return 0;
+    }
+
     dvd_init_fallback_path();
-
-    if (path[0] == '/') {
-        snprintf(fullpath, sizeof(fullpath), "%s%s", assets_base_path, path);
-    } else {
-        snprintf(fullpath, sizeof(fullpath), "%s/%s", assets_base_path, path);
-    }
-
-    fp = fopen(fullpath, "rb");
-    if (!fp) {
-        return 0;
-    }
-
-    if (fseek(fp, 0, SEEK_END) != 0) {
-        fclose(fp);
-        return 0;
-    }
-
-    end_pos = ftell(fp);
-    if (end_pos < 0) {
-        fclose(fp);
-        return 0;
-    }
-
-    if (fseek(fp, 0, SEEK_SET) != 0) {
-        fclose(fp);
-        return 0;
-    }
-
-    *out_fp = fp;
-    *out_size = (u32)end_pos;
-    return 1;
+    return dvd_try_open_from_base(assets_base_path, path, out_fp, out_size);
 }
 
 static dvd_localized_source_t dvd_get_localized_source(const char* localized_path) {
@@ -396,6 +493,44 @@ static void dvd_init_fallback_path(void) {
     }
     strncpy(assets_base_path, "assets", sizeof(assets_base_path)-1);
     assets_base_path[sizeof(assets_base_path)-1] = '\0';
+}
+
+static void dvd_init_translations_path(void) {
+    const char* lang = pc_settings_get_language();
+    const char* effective_lang = (lang != NULL) ? lang : "";
+
+    if (translations_fallback_inited && strcmp(translations_fallback_language, effective_lang) == 0) {
+        return;
+    }
+
+    translations_fallback_inited = 1;
+    strncpy(translations_fallback_language, effective_lang, sizeof(translations_fallback_language) - 1);
+    translations_fallback_language[sizeof(translations_fallback_language) - 1] = '\0';
+    translations_base_path[0] = '\0';
+
+    if (effective_lang[0] == '\0' || strcmp(effective_lang, "default") == 0) {
+        return;
+    }
+
+    {
+        const char* candidates[] = {
+            "translations",
+            "../translations",
+            "../../translations",
+            "../../../translations",
+        };
+
+        for (int i = 0; i < (int)(sizeof(candidates) / sizeof(candidates[0])); i++) {
+            char test[768];
+
+            snprintf(test, sizeof(test), "%s/%s", candidates[i], effective_lang);
+            if (dvd_dir_exists(test)) {
+                strncpy(translations_base_path, test, sizeof(translations_base_path) - 1);
+                translations_base_path[sizeof(translations_base_path) - 1] = '\0';
+                return;
+            }
+        }
+    }
 }
 
 s32 DVDConvertPathToEntrynum(const char* path) {
