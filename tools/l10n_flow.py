@@ -266,12 +266,20 @@ def from_eur_flow(args):
 
         new_data, new_table = convert_message_data(eur_bmg, usa_msg, usa_tbl)
 
-        # Write merged data back into a copy of the USA unpacked tree
-        pack_root = os.path.join(tmp, "pack")
-        shutil.copytree(usa_root, pack_root)
+        # Write merged data back into a copy of the USA unpacked tree.
+        # Preserve the archive root directory name (e.g. "bin2") so the
+        # repacked archive has the same structure as the original:
+        #   bin2/
+        #     data/
+        #       my_original.bin  message_data.bin  ...
+        # The game's ARAM archive API looks for a "data" subdirectory
+        # inside the root; a flat layout causes resource lookups to return
+        # 0, leading to an integer underflow and a NULL-pointer crash.
+        pack_arc_root = os.path.join(tmp, "pack", os.path.basename(usa_root))
+        shutil.copytree(usa_root, pack_arc_root)
 
-        data_dst = _find_file(pack_root, "message_data.bin")
-        table_dst = _find_file(pack_root, "message_data_table.bin")
+        data_dst = _find_file(pack_arc_root, "message_data.bin")
+        table_dst = _find_file(pack_arc_root, "message_data_table.bin")
         with open(data_dst, "wb") as f:
             f.write(new_data)
         with open(table_dst, "wb") as f:
@@ -279,10 +287,7 @@ def from_eur_flow(args):
 
         # Repack
         print("\nPacking arc...")
-        inner_dirs = [d for d in os.listdir(pack_root) if os.path.isdir(os.path.join(pack_root, d))]
-        if not inner_dirs:
-            raise RuntimeError("Cannot find arc root in unpacked USA tree")
-        _pack_arc(os.path.join(pack_root, inner_dirs[0]), str(out_arc))
+        _pack_arc(pack_arc_root, str(out_arc))
 
     print(f"\nDone! Drop this file into translations/{lang}/ and set")
     print(f"  language = {lang}")
