@@ -104,6 +104,77 @@ def iter_usa_entries(data: bytes, table: list):
             last = end
 
 
+# ── EUR preprocessing ─────────────────────────────────────────────────────────
+
+# EUR gender-switch control code (variable length):
+#   80 <SIZE> 13 00 14 <masc_bytes> FE <fem_bytes>
+# SIZE = total bytes including the 80 and SIZE bytes themselves.
+# Minimum: 80 08 13 00 14 X FE Y = 8 bytes (single-char masc/fem).
+# Larger codes carry multi-char strings, e.g. "l'amico" / "l'amica".
+#
+# Converted to USA mFont_CONT_CODE_GENDER_CHAR (index 0x6B = 107):
+#   <common_prefix> 7F 6B <masc_final_byte> <fem_final_byte>
+# When masc and fem share a common prefix (common in Romance languages),
+# that prefix is emitted as plain text and only the differing final byte
+# is placed in the GENDER_CHAR code.  If the two strings differ by more
+# than one byte, the masculine form is emitted as plain text (fallback).
+_EUR_GENDER_ESCAPE = 0x80
+_EUR_GENDER_TYPE   = bytes([0x13, 0x00, 0x14])
+_EUR_GENDER_SEP    = 0xFE
+# USA GENDER_CHAR opcode (mFont_CONT_CODE_GENDER_CHAR = index 107 = 0x6B)
+_USA_GENDER_CHAR_OP = bytes([0x7F, 0x6B])
+
+
+def preprocess_eur_raw(raw: bytes) -> bytes:
+    """Convert EUR gender-switch codes to USA GENDER_CHAR control codes.
+
+    Handles both single-byte forms (8-byte total) and multi-byte forms such as
+    "l'amico" / "l'amica" (14-byte total).  When masc and fem share a common
+    prefix that differ only in a single final byte, emits:
+        <common_prefix_bytes>  7F 6B <masc_tail> <fem_tail>
+    Otherwise falls back to emitting the masculine string as plain text.
+    """
+    if _EUR_GENDER_ESCAPE not in raw:
+        return raw
+
+    out = bytearray()
+    i = 0
+    while i < len(raw):
+        if (raw[i] == _EUR_GENDER_ESCAPE
+                and i + 5 < len(raw)):
+            size = raw[i + 1]
+            if (size >= 8
+                    and i + size <= len(raw)
+                    and raw[i + 2:i + 5] == _EUR_GENDER_TYPE):
+                payload = raw[i + 5:i + size]   # bytes after "13 00 14"
+                sep_pos = payload.find(_EUR_GENDER_SEP)
+                if sep_pos >= 0:
+                    masc = payload[:sep_pos]
+                    fem  = payload[sep_pos + 1:]
+                    # Find common prefix length
+                    pfx = 0
+                    while pfx < len(masc) and pfx < len(fem) and masc[pfx] == fem[pfx]:
+                        pfx += 1
+                    masc_tail = masc[pfx:]
+                    fem_tail  = fem[pfx:]
+                    if len(masc_tail) == 1 and len(fem_tail) == 1:
+                        # Common case: texts share a prefix and differ only in
+                        # the final byte (e.g. "l'amico"/"l'amica" → common
+                        # prefix "l'amic", tails 'o'/'a').
+                        out += masc[:pfx]
+                        out += _USA_GENDER_CHAR_OP
+                        out.append(masc_tail[0])
+                        out.append(fem_tail[0])
+                    else:
+                        # Multi-byte tail difference: fall back to masculine text.
+                        out += masc
+                    i += size
+                    continue
+        out.append(raw[i])
+        i += 1
+    return bytes(out)
+
+
 # ── Segment splitting ─────────────────────────────────────────────────────────
 
 def split_into_segments(raw: bytes, escape: int):
@@ -233,12 +304,13 @@ def convert_message_data(
             stats["eur_only"] += 1
             new_data.extend(usa_raw)
         else:
+            eur_raw_proc = preprocess_eur_raw(eur_raw)
             usa_segs = split_into_segments(usa_raw, USA_ESCAPE)
-            eur_segs = split_into_segments(eur_raw, EUR_ESCAPE)
+            eur_segs = split_into_segments(eur_raw_proc, EUR_ESCAPE)
             n_usa_text = sum(1 for k, _ in usa_segs if k == "text")
             n_eur_text = sum(1 for k, _ in eur_segs if k == "text")
 
-            merged = merge_entry(usa_raw, eur_raw)
+            merged = merge_entry(usa_raw, eur_raw_proc)
             new_data.extend(merged)
             if n_usa_text == n_eur_text:
                 stats["merged"] += 1

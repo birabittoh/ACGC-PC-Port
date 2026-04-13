@@ -147,7 +147,7 @@ static const mFont_ControlCodeInfo_t mFont_cont_info_tbl[mFont_CONT_CODE_NUM] = 
   { 2, mFont_CONT_ATTRIBUTE_AGB_DUMMY },
   { 2, mFont_CONT_ATTRIBUTE_AGB_DUMMY },
   { 6, mFont_CONT_ATTRIBUTE_0 },
-  { 2, mFont_CONT_ATTRIBUTE_AGB_DUMMY },
+  { 4, mFont_CONT_ATTRIBUTE_0 }, /* GENDER_CHAR: 7F 6B masc_byte fem_byte */
   { 2, mFont_CONT_ATTRIBUTE_AGB_DUMMY },
   { 3, mFont_CONT_ATTRIBUTE_AGB_DUMMY },
   { 3, mFont_CONT_ATTRIBUTE_AGB_DUMMY },

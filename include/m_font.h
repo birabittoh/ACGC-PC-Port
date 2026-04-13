@@ -391,7 +391,7 @@ enum {
   mFont_CONT_CODE_AGB_DUMMY3,
   mFont_CONT_CODE_AGB_DUMMY4,
   mFont_CONT_CODE_AGB_MALE_FEMALE_CHECK,
-  mFont_CONT_CODE_AGB_DUMMY5,
+  mFont_CONT_CODE_GENDER_CHAR, /* inline EUR gender suffix: 7F 6B masc_byte fem_byte */
   mFont_CONT_CODE_AGB_DUMMY6,
   mFont_CONT_CODE_AGB_DUMMY7,
   mFont_CONT_CODE_AGB_DUMMY8,
