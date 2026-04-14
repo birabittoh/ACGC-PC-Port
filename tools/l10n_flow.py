@@ -91,34 +91,96 @@ TOOLS_DIR = Path(__file__).resolve().parent
 ROOT_DIR = TOOLS_DIR.parent
 
 # ── Item / furniture name extraction from EUR forestd.rel.szs ─────────────────
-# Offsets and sizes from pc_assets.c (4th column = ROM offset within foresta.rel.szs).
-# Each entry: (output filename, USA foresta.rel.szs offset, byte size).
-# Entries are 16-byte fixed-width strings, space-padded (mIN_ITEM_NAME_LEN = 16).
-_ITEM_NAME_FILES: list[tuple[str, int, int]] = [
-    ("itemName_paper.bin",      0x54F4A0, 0x1000),
-    ("itemName_money.bin",      0x5504A0, 0x0040),
-    ("itemName_tool.bin",       0x5504E0, 0x05C0),
-    ("itemName_fish.bin",       0x550AA0, 0x0280),
-    ("itemName_cloth.bin",      0x550D20, 0x0FF0),
-    ("itemName_etc.bin",        0x551D10, 0x0310),
-    ("itemName_carpet.bin",     0x552020, 0x0430),
-    ("itemName_wall.bin",       0x552450, 0x0430),
-    ("itemName_fruit.bin",      0x552880, 0x0080),
-    ("itemName_plant.bin",      0x552900, 0x00B0),
-    ("itemName_minidisk.bin",   0x5529B0, 0x0370),
-    ("itemName_dummy.bin",      0x552D20, 0x0100),
-    ("itemName_ticket.bin",     0x552E20, 0x0600),
-    ("itemName_insect.bin",     0x553420, 0x02D0),
-    ("itemName_hukubukuro.bin", 0x5536F0, 0x0020),
-    ("itemName_kabu.bin",       0x553710, 0x0040),
-    ("ftrName_table.bin",       0x553750, 0x4000),
-    ("ftrName2_table.bin",      0x557750, 0x0F20),
-]
-# ftrName_table start offset in USA foresta.rel.szs (derived from pc_assets.c above).
-_USA_FORESTA_FTR_OFFSET = 0x553750
 # ftrName_table start offset in EUR forestd.rel.szs — identical for all 5 EUR
 # language TGCs (Eng/Frn/Gmn/Itl/Spn), verified by inspection.
 _EUR_FORESTD_FTR_OFFSET = 0x1E37D0
+# ftrName2_table is always 0x4000 bytes after ftrName_table in all EUR TGCs.
+_EUR_FORESTD_FTR2_OFFSET = _EUR_FORESTD_FTR_OFFSET + 0x4000
+
+# Item-name section layout tables for EUR forestd.rel.szs.
+#
+# Each entry: (filename, ftr_dist, eur_size, usa_size)
+#   ftr_dist  — section_start = _EUR_FORESTD_FTR_OFFSET - ftr_dist
+#   eur_size  — bytes available in the EUR binary for this section
+#   usa_size  — size of the destination array in the PC port (from pc_assets.c)
+#
+# When eur_size < usa_size the extracted block is zero-padded to usa_size so
+# the game falls back to the built-in English name for any untranslated entries.
+# When eur_size > usa_size only the first usa_size bytes are used.
+#
+# Offsets verified empirically against all five EUR language TGC archives.
+
+# Tuple format: (filename, ftr_dist, eur_size, usa_size, usa_skip)
+#   ftr_dist: offset from _EUR_FORESTD_FTR_OFFSET to the start of the EUR data.
+#             None → write a zero-filled file (section has no direct EUR source).
+#   usa_skip: unused in the main loop for non-ENG (kept as 0 for all entries);
+#             used by the ENG layout if ever needed.
+
+# en-EU: section order and sizes match the USA foresta.rel exactly.
+_EUR_LAYOUT_ENG: list[tuple[str, int, int, int, int]] = [
+    ("itemName_paper.bin",      0x42B0, 0x1000, 0x1000, 0),
+    ("itemName_money.bin",      0x32B0, 0x0040, 0x0040, 0),
+    ("itemName_tool.bin",       0x3270, 0x05C0, 0x05C0, 0),
+    ("itemName_fish.bin",       0x2CB0, 0x0280, 0x0280, 0),
+    ("itemName_cloth.bin",      0x2A30, 0x0FF0, 0x0FF0, 0),
+    ("itemName_etc.bin",        0x1A40, 0x0310, 0x0310, 0),
+    ("itemName_carpet.bin",     0x1730, 0x0430, 0x0430, 0),
+    ("itemName_wall.bin",       0x1300, 0x0430, 0x0430, 0),
+    ("itemName_fruit.bin",      0x0ED0, 0x0080, 0x0080, 0),
+    ("itemName_plant.bin",      0x0E50, 0x00B0, 0x00B0, 0),
+    ("itemName_minidisk.bin",   0x0DA0, 0x0370, 0x0370, 0),
+    ("itemName_dummy.bin",      0x0A30, 0x0100, 0x0100, 0),
+    ("itemName_ticket.bin",     0x0930, 0x0600, 0x0600, 0),
+    ("itemName_insect.bin",     0x0330, 0x02D0, 0x02D0, 0),
+    ("itemName_hukubukuro.bin", 0x0060, 0x0020, 0x0020, 0),
+    ("itemName_kabu.bin",       0x0040, 0x0040, 0x0040, 0),
+    ("ftrName_table.bin",       0x0000, 0x4000, 0x4000, 0),
+]
+
+# fr-FR / de-DE / it-IT / es-ES: the compiled REL uses different ftr_dist values
+# for tool, fish, cloth (each shifted +0x40 = 4 entries earlier relative to ENG).
+# The sections for carpet and wall are assembled from multiple EUR sources by
+# _extract_item_names post-processing (see below).
+#
+# Mapping of EUR sections to USA item-name arrays:
+#
+#   EUR tool   (ftr_dist 0x32B0, 92 entries)  → USA tool[0-91]
+#              entry 0 = retino (net), entry 1 = ascia (axe), …
+#   EUR fish   (ftr_dist 0x2CF0, 40 entries)  → USA fish[0-39]
+#              entry 0 = carpa cruciana, entry 4 = pesce gatto (catfish), …
+#   EUR cloth  (ftr_dist 0x2A70, 255 entries) → USA cloth[0-254]
+#
+#   EUR "etc"  (ftr_dist 0x1A80, 53 entries)  → USA carpet[0-52]
+#              (the EUR section named "etc" contains carpet items in non-ENG)
+#   EUR carpet (ftr_dist 0x1730, 67 entries)
+#              entries  0-13 → USA carpet[53-66]
+#              entries 14-66 → USA wall[0-52]
+#   EUR wall   (ftr_dist 0x1300, 14 entries)  → USA wall[53-66]
+_EUR_LAYOUT_NON_ENG: list[tuple[str, int, int, int, int]] = [
+    ("itemName_paper.bin",      0x4270, 0x1000, 0x1000, 0),
+    ("itemName_tool.bin",       0x32B0, 0x05C0, 0x05C0, 0),  # +0x40 vs ENG
+    ("itemName_fish.bin",       0x2CF0, 0x0280, 0x0280, 0),  # +0x40 vs ENG
+    ("itemName_cloth.bin",      0x2A70, 0x0FF0, 0x0FF0, 0),  # +0x40 vs ENG
+    # itemName_etc.bin: EUR "etc" is carpet items; carpet/wall rebuilt in post-processing.
+    ("itemName_etc.bin",        None,   0x0000, 0x0310, 0),
+    ("itemName_carpet.bin",     None,   0x0000, 0x0430, 0),
+    ("itemName_wall.bin",       None,   0x0000, 0x0430, 0),
+    # EUR fruit has 10 entries; USA has 8.  Use only the first 8.
+    ("itemName_fruit.bin",      0x1220, 0x0080, 0x0080, 0),
+    # EUR plant has 9 entries; USA has 11.  Pad the last 2 with zeros.
+    ("itemName_plant.bin",      0x1180, 0x0090, 0x00B0, 0),
+    # EUR minidisk has 71 entries; first 55 are K.K. songs matching USA.
+    ("itemName_minidisk.bin",   0x10F0, 0x0370, 0x0370, 0),
+    ("itemName_insect.bin",     0x0C80, 0x02D0, 0x02D0, 0),
+    # money is placed after insect in non-English EUR (not between paper and tool).
+    ("itemName_money.bin",      0x09B0, 0x0040, 0x0040, 0),
+    # EUR dummy has 48 entries; USA has 16.  Use only the first 16.
+    ("itemName_dummy.bin",      0x0970, 0x0100, 0x0100, 0),
+    ("itemName_ticket.bin",     0x0660, 0x0600, 0x0600, 0),
+    ("itemName_hukubukuro.bin", 0x0060, 0x0020, 0x0020, 0),
+    ("itemName_kabu.bin",       0x0040, 0x0040, 0x0040, 0),
+    ("ftrName_table.bin",       0x0000, 0x4000, 0x4000, 0),
+]
 
 
 def _yaz0_decompress(data: bytes) -> bytes:
@@ -154,61 +216,79 @@ def _yaz0_decompress(data: bytes) -> bytes:
 def _extract_item_names(eur_forestd_szs: Path, out_dir: Path, lang: str = "en-EU") -> int:
     """Extract translated item/furniture name bins from EUR forestd.rel.szs.
 
-    Decompresses the SZS, then extracts 18 item/furniture name tables.
+    Selects the correct section layout table for the given language, then for
+    each section copies the EUR bytes into a zero-padded buffer sized to match
+    the USA destination array and writes it to out_dir/assets/<name>.bin.
+    Also extracts ftrName2_table.bin (always at a fixed offset).
 
-    Layout notes
-    ------------
-    ftrName_table is at offset 0x1E37D0 in ALL 5 EUR language TGCs (verified).
-
-    For en-EU the section order before ftrName_table is identical to USA:
-      paper(0x1000) money(0x40) tool(0x5C0) fish(0x280) cloth(0xFF0) ...
-
-    For the four non-English languages (fr-FR, de-DE, it-IT, es-ES) the compiled
-    REL places itemName_money at a different VMA; all other sections are still
-    consecutive in the same order.  As a result the block from paper through kabu
-    is 0x40 bytes shorter (0x4270 instead of 0x42B0), and money cannot be
-    reliably located.  Those languages therefore skip money extraction (the game
-    falls back to the built-in USA money strings at runtime).
-
-    Writes each bin to out_dir/assets/<name>.bin.
     Returns the number of files written.
     """
     dec = _yaz0_decompress(eur_forestd_szs.read_bytes())
 
-    # ftrName_table is always at the verified fixed offset for all 5 languages.
-    eur_ftr_start = _EUR_FORESTD_FTR_OFFSET
-
-    # For non-English languages the paper→kabu block is 0x40 bytes shorter
-    # (no money section between paper and tool).
-    is_non_eng = lang != "en-EU"
-    # Size of the money section that is absent in non-English layout.
-    _MONEY_SIZE = 0x0040
+    layout = _EUR_LAYOUT_ENG if lang == "en-EU" else _EUR_LAYOUT_NON_ENG
 
     out_assets = out_dir / "assets"
     out_assets.mkdir(parents=True, exist_ok=True)
 
+    _ES = 16  # each item name occupies 16 bytes (null-padded)
+
+    def _eur_off(ftr_dist: int) -> int:
+        return _EUR_FORESTD_FTR_OFFSET - ftr_dist
+
+    def _copy_entries(buf: bytearray, buf_slot: int,
+                      src_off: int, src_entry: int, count: int) -> None:
+        """Copy `count` 16-byte entries from dec[src_off + src_entry*16 ...] into buf."""
+        for i in range(count):
+            b = src_off + (src_entry + i) * _ES
+            buf[(buf_slot + i) * _ES: (buf_slot + i + 1) * _ES] = dec[b: b + _ES]
+
     written = 0
-    for filename, usa_off, size in _ITEM_NAME_FILES:
-        rel = usa_off - _USA_FORESTA_FTR_OFFSET  # offset relative to ftrName_table in USA
-
-        if filename == "itemName_money.bin" and is_non_eng:
-            # money is at an unrelated VMA in non-English EUR; skip.
-            continue
-
-        if is_non_eng and usa_off > 0x5504A0:
-            # In non-English EUR the money section (0x40 bytes) is absent from
-            # this consecutive block, so every section after paper sits 0x40
-            # bytes earlier than in the English/USA layout.
-            eur_off = eur_ftr_start + rel - _MONEY_SIZE
-        else:
-            eur_off = eur_ftr_start + rel
-
-        block = dec[eur_off: eur_off + size]
-        if len(block) != size:
-            print(f"  Warning: {filename}: expected {size:#x} bytes, got {len(block):#x} — skipping.")
-            continue
-        (out_assets / filename).write_bytes(block)
+    for filename, ftr_dist, eur_size, usa_size, usa_skip in layout:
+        buf = bytearray(usa_size)          # zero-filled to usa_size
+        if ftr_dist is not None:
+            skip_bytes = usa_skip * _ES
+            copy_len = min(eur_size, usa_size - skip_bytes)
+            buf[skip_bytes: skip_bytes + copy_len] = dec[_eur_off(ftr_dist): _eur_off(ftr_dist) + copy_len]
+        (out_assets / filename).write_bytes(bytes(buf))
         written += 1
+
+    # ── Non-English post-processing: rebuild carpet and wall ─────────────────
+    # In non-ENG the EUR REL names its sections differently from USA.  After the
+    # main loop writes tool/fish/cloth directly (using their corrected ftr_dists),
+    # carpet and wall must be assembled from multiple EUR source sections:
+    #
+    #   EUR "etc"    (ftr_dist 0x1A80, 53 entries) → USA carpet[0-52]
+    #   EUR "carpet" (ftr_dist 0x1730, entries 0-13)  → USA carpet[53-66]
+    #   EUR "carpet" (ftr_dist 0x1730, entries 14-66) → USA wall[0-52]
+    #   EUR "wall"   (ftr_dist 0x1300, entries 0-13)  → USA wall[53-66]
+    if lang != "en-EU":
+        def _find(name: str) -> tuple:
+            return next(t for t in layout if t[0] == name)
+
+        etc_off  = _EUR_FORESTD_FTR_OFFSET - 0x1A80   # corrected ftr_dist for non-ENG
+        carp_off = _EUR_FORESTD_FTR_OFFSET - 0x1730
+        wall_off = _EUR_FORESTD_FTR_OFFSET - 0x1300
+
+        # carpet: slots 0-52 from EUR "etc", slots 53-66 from EUR "carpet"[0-13]
+        carpet_usa_size = _find("itemName_carpet.bin")[3]
+        carpet_buf = bytearray(carpet_usa_size)
+        _copy_entries(carpet_buf,  0, etc_off,   0, 53)
+        _copy_entries(carpet_buf, 53, carp_off,  0, 14)
+        (out_assets / "itemName_carpet.bin").write_bytes(bytes(carpet_buf))
+
+        # wall: slots 0-52 from EUR "carpet"[14-66], slots 53-66 from EUR "wall"[0-13]
+        wall_usa_size = _find("itemName_wall.bin")[3]
+        wall_buf = bytearray(wall_usa_size)
+        _copy_entries(wall_buf,  0, carp_off, 14, 53)
+        _copy_entries(wall_buf, 53, wall_off,  0, 14)
+        (out_assets / "itemName_wall.bin").write_bytes(bytes(wall_buf))
+
+    # ftrName2_table is always immediately after ftrName_table (fixed for all langs)
+    ftr2_size = 0x0F20
+    buf = bytearray(ftr2_size)
+    buf[:ftr2_size] = dec[_EUR_FORESTD_FTR2_OFFSET: _EUR_FORESTD_FTR2_OFFSET + ftr2_size]
+    (out_assets / "ftrName2_table.bin").write_bytes(bytes(buf))
+    written += 1
 
     return written
 
