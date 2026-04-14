@@ -452,6 +452,120 @@ def dump_select_eur_flow(args):
     print(f"Dumped {non_empty} non-empty entries (of {VALID_COUNT}) → {out_txt}")
 
 
+# EUR escape-code → USA escape-code mapping for forest_1st_script bins.
+# EUR uses  0x80 0x05 0x04 0x00 <code>  (5-byte sequence).
+# USA uses  0x7F <byte>               (2-byte sequence).
+# Codes 0x10-0x1B map via +0x12; codes 0x1C-0x25 map via +0x1A.
+# Codes 0x10 and 0x11 (article/category helpers) have no USA equivalent → skip.
+_EUR_TO_USA_ESCAPE: dict[int, bytes] = {
+    code: bytes([0x7F, code + 0x12]) for code in range(0x12, 0x1C)
+}
+_EUR_TO_USA_ESCAPE.update({
+    code: bytes([0x7F, code + 0x1A]) for code in range(0x1C, 0x26)
+})
+
+# (BMG-name, USA data-file stem, USA table-slot count, USA padded data size)
+_1ST_SCRIPT_BINS: list[tuple[str, str, int, int]] = [
+    ("ps",     "ps",     1250, 0x4E20),
+    ("psz",    "psz",    750,  0x1388),
+    ("super",  "super",  1250, 0x4E20),
+    ("superz", "superz", 750,  0x1388),
+    ("mail",   "mail",   1500, 0x1FBD0),
+    ("maila",  "maila",  750,  0x4E20),
+    ("mailb",  "mailb",  750,  0x7530),
+    ("mailc",  "mailc",  750,  0x2710),
+]
+
+
+def _eur_raw_to_usa_bytes(raw: bytes) -> bytes:
+    """Translate one EUR BMG entry's raw bytes to USA _data.bin format.
+
+    Replaces 5-byte EUR escape sequences (0x80 0x05 0x04 0x00 <code>) with
+    their USA 2-byte equivalents (0x7F <byte>).  Stops at a NUL terminator.
+    Bytes not part of an escape are passed through unchanged (they are already
+    in the AC single-byte charset used by both EUR and USA).
+    """
+    out = bytearray()
+    i = 0
+    while i < len(raw):
+        b = raw[i]
+        if b == 0x80:
+            size = raw[i + 1] if i + 1 < len(raw) else 2
+            if size == 5 and i + 4 < len(raw) and raw[i + 2] == 0x04 and raw[i + 3] == 0x00:
+                code = raw[i + 4]
+                if code in _EUR_TO_USA_ESCAPE:
+                    out.extend(_EUR_TO_USA_ESCAPE[code])
+                # codes 0x10, 0x11 and anything else → silently dropped
+            i += max(size, 2)
+        elif b == 0x00:
+            break
+        else:
+            out.append(b)
+            i += 1
+    return bytes(out)
+
+
+def _translate_1st_script_bins(eur_1st_script_arc: Path, pack_arc_root: str,
+                                tmp: str) -> None:
+    """Replace USA letter/postscript bins with EUR-translated versions.
+
+    Reads each BMG file from EUR forest_1st_script.arc, translates escape
+    codes to USA format, and overwrites the corresponding _data.bin /
+    _data_table.bin pair inside pack_arc_root.
+    """
+    from bmg_to_msg import parse_bmg
+    import struct
+
+    eur_root = _extract_arc(str(eur_1st_script_arc), os.path.join(tmp, "eur1s_bins"))
+    # _extract_arc descends into the single top-level subdirectory, so eur_root
+    # is already bin_1st_script/ — the bins live in its "data/" child.
+    eur_data_dir = os.path.join(eur_root, "data")
+    if not os.path.isdir(eur_data_dir):
+        print("  Warning: bin_1st_script/data not found in EUR arc — skipping letter bin translation.")
+        return
+
+    for bmg_stem, usa_stem, table_slots, data_pad in _1ST_SCRIPT_BINS:
+        bmg_path = os.path.join(eur_data_dir, f"{bmg_stem}.bin")
+        if not os.path.exists(bmg_path):
+            print(f"  Warning: {bmg_stem}.bin not found in EUR arc — skipping.")
+            continue
+
+        data_dst  = _find_file(pack_arc_root, f"{usa_stem}_data.bin")
+        table_dst = _find_file(pack_arc_root, f"{usa_stem}_data_table.bin")
+        if not data_dst or not table_dst:
+            print(f"  Warning: {usa_stem}_data.bin not found in USA arc — skipping.")
+            continue
+
+        try:
+            offsets, dat1 = parse_bmg(Path(bmg_path).read_bytes())
+        except Exception as exc:
+            print(f"  Warning: could not parse {bmg_stem}.bin ({exc}) — skipping.")
+            continue
+
+        # Build translated data + table
+        data_out  = bytearray()
+        table_out = bytearray(table_slots * 4)  # zero-filled
+
+        n_translated = 0
+        for i in range(min(len(offsets), table_slots)):
+            start = offsets[i]
+            end   = offsets[i + 1] if i + 1 < len(offsets) else len(dat1)
+            raw   = dat1[start:end]
+            translated = _eur_raw_to_usa_bytes(raw)
+            if translated:
+                n_translated += 1
+            data_out.extend(translated)
+            struct.pack_into(">I", table_out, i * 4, len(data_out))
+        # Remaining slots beyond EUR entry count stay zero (empty)
+
+        if len(data_out) < data_pad:
+            data_out.extend(b"\x00" * (data_pad - len(data_out)))
+
+        Path(data_dst).write_bytes(bytes(data_out))
+        Path(table_dst).write_bytes(bytes(table_out))
+        print(f"  Translated {n_translated} entries for {usa_stem}_data.bin")
+
+
 def _build_forest_1st(usa_1st_arc: Path, lang: str, out_arc: Path,
                       tmp: str, select_txt: str | None,
                       eur_1st_script_arc: Path | None = None) -> None:
@@ -474,6 +588,11 @@ def _build_forest_1st(usa_1st_arc: Path, lang: str, out_arc: Path,
 
     # Translate NPC names in string_data.bin
     _translate_npc_names(pack_arc_root, lang)
+
+    # Translate letter/postscript bins from EUR forest_1st_script.arc
+    if eur_1st_script_arc and eur_1st_script_arc.exists():
+        print("  Translating letter and postscript bins from EUR arc...")
+        _translate_1st_script_bins(eur_1st_script_arc, pack_arc_root, tmp)
 
     # Determine the select text to use: explicit file > auto-extract from EUR > English fallback
     effective_select_txt = select_txt
