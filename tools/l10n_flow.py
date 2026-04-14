@@ -48,6 +48,45 @@ import tempfile
 from pathlib import Path
 
 META_FILE_NAME = "l10n_meta.json"
+
+# ── NPC name translation tables ───────────────────────────────────────────────
+# Extracted from EUR forest_1st_script.arc → string.bin (verified against live data).
+# Order matches USA string_data.bin entries 517-536:
+#   Tom Nook, Redd, Katrina, Saharah, Wendell, Jingle, Gracie, Joan,
+#   Pelly, Phyllis, Pete, Copper, Porter, Jack, Gyroid, K.K.,
+#   Rover, Chip, Timmy, Tommy
+_NPC_NAME_USA = [
+    "Tom Nook", "Redd", "Katrina", "Saharah", "Wendell", "Jingle",
+    "Gracie", "Joan", "Pelly", "Phyllis", "Pete", "Copper", "Porter",
+    "Jack", "Gyroid", "K.K.", "Rover", "Chip", "Timmy", "Tommy",
+]
+_NPC_NAME_INDEX_START = 517  # first string_data.bin index holding a NPC name
+
+_EUR_NPC_NAMES: dict[str, list[str]] = {
+    "it-IT": [
+        "Tom Nook", "Volpolo", "Vanda", "Sahara", "Van Trik", "Jingle",
+        "Griffa", "Nella", "Pelly", "Polly", "Tino", "Birro", "Ciufciuf",
+        "Fifonio", "Giroide", "K.K.", "Girolamo", "Castore", "Mirco", "Marco",
+    ],
+    "fr-FR": [
+        "Tom Nook", "Rounard", "Astrid", "Sarah", "Morsicus", "Rodolphe",
+        "Carla", "Porcella", "Op\u00e9lie", "Elisabec", "Antoine", "Maret",
+        "Lazare", "Jacqu\u0027O", "Gyro\u00efde", "K\u00e9k\u00e9",
+        "Charly", "Castor", "M\u00e9li", "M\u00e9lo",
+    ],
+    "de-DE": [
+        "Tom Nook", "Reiner", "Smeralda", "Aziza", "Winci", "Chris",
+        "Grazia", "Siegrid", "Pelly", "Peggy", "Peter", "Harry", "Flip",
+        "Jakob", "Gyroid", "K.K.", "Olli", "Bartholo", "Nepp", "Schlepp",
+    ],
+    "es-ES": [
+        "Tom Nook", "Ladino", "Katrina", "Alcatifa", "Da Morsi", "Renato",
+        "Graciela", "Juana", "Sol", "Estrella", "Carturo", "Vigilio",
+        "Estasio", "Soponcio", "Giroide", "Totakeke", "Fran", "Mart\u00edn",
+        "Tendo", "Nendo",
+    ],
+    # en-EU intentionally omitted: keep USA English names as-is
+}
 TOOLS_DIR = Path(__file__).resolve().parent
 ROOT_DIR = TOOLS_DIR.parent
 
@@ -275,6 +314,60 @@ def _build_forest_2nd(eur_arc_path: Path, usa_arc_path: Path, lang: str,
     print(f"  → {out_arc}")
 
 
+def _translate_npc_names(pack_arc_root: str, lang: str) -> None:
+    """Patch string_data.bin in pack_arc_root with translated NPC names for lang.
+
+    Replaces entries _NPC_NAME_INDEX_START .. _NPC_NAME_INDEX_START+19 with the
+    EUR localised names from _EUR_NPC_NAMES.  No-ops for en-EU (names unchanged).
+    """
+    if lang not in _EUR_NPC_NAMES:
+        return  # en-EU or unknown — keep USA names
+
+    sys.path.insert(0, str(TOOLS_DIR))
+    from select_tool import parse_select, encode_ac_str, VALID_COUNT, TABLE_TOTAL
+    import struct
+
+    data_path  = _find_file(pack_arc_root, "string_data.bin")
+    table_path = _find_file(pack_arc_root, "string_data_table.bin")
+    if not data_path or not table_path:
+        print("  Warning: string_data.bin not found — skipping NPC name translation.")
+        return
+
+    data_bytes  = Path(data_path).read_bytes()
+    table_bytes = Path(table_path).read_bytes()
+    orig_data_size  = len(data_bytes)
+    orig_table_size = len(table_bytes)
+
+    entries = list(parse_select(data_bytes, table_bytes))   # list[bytes], len=VALID_COUNT
+    translated = _EUR_NPC_NAMES[lang]
+    start = _NPC_NAME_INDEX_START
+
+    for i, name in enumerate(translated):
+        idx = start + i
+        if idx >= VALID_COUNT:
+            break
+        encoded = encode_ac_str(name)
+        entries[idx] = encoded
+
+    # Re-encode into data + table
+    new_data  = bytearray()
+    new_table = bytearray(orig_table_size)  # TABLE_TOTAL * 4, zero-filled
+
+    for i in range(VALID_COUNT):
+        new_data.extend(entries[i])
+        struct.pack_into(">I", new_table, i * 4, len(new_data))
+
+    if len(new_data) < orig_data_size:
+        new_data.extend(b"\x00" * (orig_data_size - len(new_data)))
+
+    Path(data_path).write_bytes(bytes(new_data))
+    Path(table_path).write_bytes(bytes(new_table))
+
+    changed = sum(1 for i, n in enumerate(translated)
+                  if n != _NPC_NAME_USA[i])
+    print(f"  Translated {changed} NPC names for {lang}.")
+
+
 def _extract_eur_select_strings(eur_1st_script_arc: Path, tmp: str) -> list[str]:
     """Extract player-choice strings from EUR forest_1st_script.arc → list[str].
 
@@ -378,6 +471,9 @@ def _build_forest_1st(usa_1st_arc: Path, lang: str, out_arc: Path,
 
     pack_arc_root = os.path.join(tmp, "pack1", os.path.basename(usa_root))
     shutil.copytree(usa_root, pack_arc_root)
+
+    # Translate NPC names in string_data.bin
+    _translate_npc_names(pack_arc_root, lang)
 
     # Determine the select text to use: explicit file > auto-extract from EUR > English fallback
     effective_select_txt = select_txt
