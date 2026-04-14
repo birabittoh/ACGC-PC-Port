@@ -90,6 +90,128 @@ _EUR_NPC_NAMES: dict[str, list[str]] = {
 TOOLS_DIR = Path(__file__).resolve().parent
 ROOT_DIR = TOOLS_DIR.parent
 
+# ── Item / furniture name extraction from EUR forestd.rel.szs ─────────────────
+# Offsets and sizes from pc_assets.c (4th column = ROM offset within foresta.rel.szs).
+# Each entry: (output filename, USA foresta.rel.szs offset, byte size).
+# Entries are 16-byte fixed-width strings, space-padded (mIN_ITEM_NAME_LEN = 16).
+_ITEM_NAME_FILES: list[tuple[str, int, int]] = [
+    ("itemName_paper.bin",      0x54F4A0, 0x1000),
+    ("itemName_money.bin",      0x5504A0, 0x0040),
+    ("itemName_tool.bin",       0x5504E0, 0x05C0),
+    ("itemName_fish.bin",       0x550AA0, 0x0280),
+    ("itemName_cloth.bin",      0x550D20, 0x0FF0),
+    ("itemName_etc.bin",        0x551D10, 0x0310),
+    ("itemName_carpet.bin",     0x552020, 0x0430),
+    ("itemName_wall.bin",       0x552450, 0x0430),
+    ("itemName_fruit.bin",      0x552880, 0x0080),
+    ("itemName_plant.bin",      0x552900, 0x00B0),
+    ("itemName_minidisk.bin",   0x5529B0, 0x0370),
+    ("itemName_dummy.bin",      0x552D20, 0x0100),
+    ("itemName_ticket.bin",     0x552E20, 0x0600),
+    ("itemName_insect.bin",     0x553420, 0x02D0),
+    ("itemName_hukubukuro.bin", 0x5536F0, 0x0020),
+    ("itemName_kabu.bin",       0x553710, 0x0040),
+    ("ftrName_table.bin",       0x553750, 0x4000),
+    ("ftrName2_table.bin",      0x557750, 0x0F20),
+]
+# ftrName_table start offset in USA foresta.rel.szs (derived from pc_assets.c above).
+_USA_FORESTA_FTR_OFFSET = 0x553750
+# ftrName_table start offset in EUR forestd.rel.szs — identical for all 5 EUR
+# language TGCs (Eng/Frn/Gmn/Itl/Spn), verified by inspection.
+_EUR_FORESTD_FTR_OFFSET = 0x1E37D0
+
+
+def _yaz0_decompress(data: bytes) -> bytes:
+    """Decompress a Yaz0/SZS stream (Nintendo GameCube format)."""
+    import struct
+    if data[:4] != b'Yaz0':
+        raise ValueError("Not a Yaz0 stream")
+    dec_size = struct.unpack_from('>I', data, 4)[0]
+    out = bytearray(dec_size)
+    src, dst = 16, 0
+    while dst < dec_size:
+        if src >= len(data):
+            break
+        code = data[src]; src += 1
+        for _ in range(8):
+            if dst >= dec_size:
+                break
+            if code & 0x80:
+                out[dst] = data[src]; src += 1; dst += 1
+            else:
+                b1 = data[src]; b2 = data[src + 1]; src += 2
+                dist = ((b1 & 0x0F) << 8) | b2
+                copy_src = dst - dist - 1
+                n = (b1 >> 4) + 2
+                if n == 2:
+                    n = data[src] + 18; src += 1
+                for _ in range(n):
+                    out[dst] = out[copy_src]; copy_src += 1; dst += 1
+            code <<= 1
+    return bytes(out)
+
+
+def _extract_item_names(eur_forestd_szs: Path, out_dir: Path, lang: str = "en-EU") -> int:
+    """Extract translated item/furniture name bins from EUR forestd.rel.szs.
+
+    Decompresses the SZS, then extracts 18 item/furniture name tables.
+
+    Layout notes
+    ------------
+    ftrName_table is at offset 0x1E37D0 in ALL 5 EUR language TGCs (verified).
+
+    For en-EU the section order before ftrName_table is identical to USA:
+      paper(0x1000) money(0x40) tool(0x5C0) fish(0x280) cloth(0xFF0) ...
+
+    For the four non-English languages (fr-FR, de-DE, it-IT, es-ES) the compiled
+    REL places itemName_money at a different VMA; all other sections are still
+    consecutive in the same order.  As a result the block from paper through kabu
+    is 0x40 bytes shorter (0x4270 instead of 0x42B0), and money cannot be
+    reliably located.  Those languages therefore skip money extraction (the game
+    falls back to the built-in USA money strings at runtime).
+
+    Writes each bin to out_dir/assets/<name>.bin.
+    Returns the number of files written.
+    """
+    dec = _yaz0_decompress(eur_forestd_szs.read_bytes())
+
+    # ftrName_table is always at the verified fixed offset for all 5 languages.
+    eur_ftr_start = _EUR_FORESTD_FTR_OFFSET
+
+    # For non-English languages the paper→kabu block is 0x40 bytes shorter
+    # (no money section between paper and tool).
+    is_non_eng = lang != "en-EU"
+    # Size of the money section that is absent in non-English layout.
+    _MONEY_SIZE = 0x0040
+
+    out_assets = out_dir / "assets"
+    out_assets.mkdir(parents=True, exist_ok=True)
+
+    written = 0
+    for filename, usa_off, size in _ITEM_NAME_FILES:
+        rel = usa_off - _USA_FORESTA_FTR_OFFSET  # offset relative to ftrName_table in USA
+
+        if filename == "itemName_money.bin" and is_non_eng:
+            # money is at an unrelated VMA in non-English EUR; skip.
+            continue
+
+        if is_non_eng and usa_off > 0x5504A0:
+            # In non-English EUR the money section (0x40 bytes) is absent from
+            # this consecutive block, so every section after paper sits 0x40
+            # bytes earlier than in the English/USA layout.
+            eur_off = eur_ftr_start + rel - _MONEY_SIZE
+        else:
+            eur_off = eur_ftr_start + rel
+
+        block = dec[eur_off: eur_off + size]
+        if len(block) != size:
+            print(f"  Warning: {filename}: expected {size:#x} bytes, got {len(block):#x} — skipping.")
+            continue
+        (out_assets / filename).write_bytes(block)
+        written += 1
+
+    return written
+
 
 def run(cmd, cwd=None):
     subprocess.run(cmd, cwd=cwd, check=True)
@@ -679,6 +801,16 @@ def from_eur_flow(args):
             eur_1st_script = eur_arc.parent / "forest_1st_script.arc"
             _build_forest_1st(usa_1st, lang, out_1st, tmp, select_txt,
                                eur_1st_script if eur_1st_script.exists() else None)
+
+    # Extract translated item/furniture names from EUR forestd.rel.szs
+    eur_forestd = eur_arc.parent / "forestd.rel.szs"
+    if eur_forestd.exists():
+        print("\nExtracting translated item names from EUR forestd.rel.szs...")
+        out_trans = ROOT_DIR / "translations" / lang
+        n = _extract_item_names(eur_forestd, out_trans, lang)
+        print(f"  → translations/{lang}/assets/  ({n} files)")
+    else:
+        print(f"\n  (forestd.rel.szs not found alongside forest_msg.arc — skipping item names)")
 
     print(f"\nDone! Drop the files into translations/{lang}/ and set")
     print(f"  language = {lang}")
