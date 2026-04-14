@@ -96,6 +96,7 @@ EUR_DIR="orig/GAFP01_00"
 
 # ── Extract USA disc (needed for .arc output only) ────────────────────────────
 USA_ARC="$USA_DIR/files/forest_2nd.arc"
+USA_1ST_ARC="$USA_DIR/files/forest_1st.arc"
 if [ "$DO_ARC" -eq 1 ]; then
     if [ -f "$USA_ARC" ]; then
         step "USA disc already extracted, skipping."
@@ -175,15 +176,27 @@ unpack_archive('$EUR_ARC', '$TMP_MSG')
     # ── Arc generation ────────────────────────────────────────────────────────
     if [ "$DO_ARC" -eq 1 ]; then
         OUT_ARC="translations/$LANG_TAG/forest_2nd.$LANG_TAG.arc"
-        if [ -f "$OUT_ARC" ]; then
-            step "[$LANG_TAG] arc already exists, skipping."
+        OUT_1ST_ARC="translations/$LANG_TAG/forest_1st.$LANG_TAG.arc"
+
+        # Resolve optional translated select strings file
+        SELECT_TXT="text/select_$TGC_CODE.txt"
+        SELECT_OPT=""
+        if [ -f "$SELECT_TXT" ]; then
+            SELECT_OPT="--select-txt $SELECT_TXT"
+        fi
+
+        if [ -f "$OUT_ARC" ] && [ -f "$OUT_1ST_ARC" ]; then
+            step "[$LANG_TAG] arcs already exist, skipping."
         else
             step "[$LANG_TAG] Merging text into USA format..."
             if "$PYTHON" -m tools.l10n_flow from-eur \
-                    --eur-arc "$EUR_ARC" \
-                    --usa-arc "$USA_ARC" \
-                    --lang    "$LANG_TAG" 2>&1 | grep -E "^  |Done|error"; then
+                    --eur-arc     "$EUR_ARC" \
+                    --usa-arc     "$USA_ARC" \
+                    --usa-1st-arc "$USA_1ST_ARC" \
+                    --lang        "$LANG_TAG" \
+                    $SELECT_OPT 2>&1 | grep -E "^  |→|Done|error|warn"; then
                 echo -e "  ${C_GREEN}→ $OUT_ARC${C_RESET}"
+                echo -e "  ${C_GREEN}→ $OUT_1ST_ARC${C_RESET}"
             else
                 warn "[$LANG_TAG] arc generation failed."
                 ERRORS+=("$LANG_TAG(arc)")
@@ -203,13 +216,27 @@ if [ "$DO_ARC" -eq 1 ]; then
     echo "Translation archives:"
     for entry in "${LANGUAGES[@]}"; do
         LANG_TAG="${entry##*:}"
-        OUT_ARC="translations/$LANG_TAG/forest_2nd.$LANG_TAG.arc"
-        [ -f "$OUT_ARC" ] && echo "  $(du -h "$OUT_ARC" | cut -f1)  $OUT_ARC"
+        for arc_name in "forest_2nd" "forest_1st"; do
+            OUT_ARC="translations/$LANG_TAG/${arc_name}.${LANG_TAG}.arc"
+            [ -f "$OUT_ARC" ] && echo "  $(du -h "$OUT_ARC" | cut -f1)  $OUT_ARC"
+        done
     done
     echo ""
     echo "To activate a language, add this to settings.ini:"
     echo "  [Localization]"
     echo "  language = fr-FR   # or de-DE / it-IT / es-ES / en-EU"
+    echo ""
+    echo "Player-choice strings (\"Never mind...\", \"Mail a letter\", etc.) are auto-translated"
+    echo "from the EUR disc — no manual work required."
+    echo ""
+    echo "To override with a custom translation for a specific language:"
+    echo "  1. Dump the EUR strings as a starting point:"
+    echo "       python -m tools.l10n_flow dump-select-eur \\"
+    echo "           --eur-1st-script-arc orig/GAFP01_00/tgc_Itl/files/forest_1st_script.arc \\"
+    echo "           --out text/select_Itl.txt   # Frn / Gmn / Spn / Eng"
+    echo "  2. Edit text/select_<Lang>.txt"
+    echo "  3. Delete translations/<lang>/forest_1st.<lang>.arc and re-run this"
+    echo "     script — it picks up text/select_<Lang>.txt automatically."
 fi
 
 if [ "$DO_TEXT" -eq 1 ]; then
