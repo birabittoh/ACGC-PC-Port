@@ -38,6 +38,7 @@ compile_commands.json
 !requirements.txt
 *.exe
 *.arc
+*.bin
 
 # For saving work files into (like IDB)
 temp/

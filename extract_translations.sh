@@ -185,16 +185,19 @@ unpack_archive('$EUR_ARC', '$TMP_MSG')
             SELECT_OPT="--select-txt $SELECT_TXT"
         fi
 
-        if [ -f "$OUT_ARC" ] && [ -f "$OUT_1ST_ARC" ]; then
-            step "[$LANG_TAG] arcs already exist, skipping."
+        OUT_ASSETS_DIR="translations/$LANG_TAG/assets"
+        if [ -f "$OUT_ARC" ] && [ -f "$OUT_1ST_ARC" ] && [ -d "$OUT_ASSETS_DIR" ]; then
+            step "[$LANG_TAG] arcs and item names already exist, skipping."
         else
             step "[$LANG_TAG] Merging text into USA format..."
-            if "$PYTHON" -m tools.l10n_flow from-eur \
+            L10N_OUT=$("$PYTHON" -m tools.l10n_flow from-eur \
                     --eur-arc     "$EUR_ARC" \
                     --usa-arc     "$USA_ARC" \
                     --usa-1st-arc "$USA_1ST_ARC" \
                     --lang        "$LANG_TAG" \
-                    $SELECT_OPT 2>&1 | grep -E "^  |→|Done|error|warn"; then
+                    $SELECT_OPT 2>&1) && L10N_OK=1 || L10N_OK=0
+            echo "$L10N_OUT" | grep -E "^  |→|Done|Extracting|assets|error|warn" || true
+            if [ "$L10N_OK" -eq 1 ]; then
                 echo -e "  ${C_GREEN}→ $OUT_ARC${C_RESET}"
                 echo -e "  ${C_GREEN}→ $OUT_1ST_ARC${C_RESET}"
             else
@@ -213,21 +216,27 @@ info "Done."
 
 if [ "$DO_ARC" -eq 1 ]; then
     echo ""
-    echo "Translation archives:"
+    echo "Translation archives and item names:"
     for entry in "${LANGUAGES[@]}"; do
         LANG_TAG="${entry##*:}"
         for arc_name in "forest_2nd" "forest_1st"; do
             OUT_ARC="translations/$LANG_TAG/${arc_name}.${LANG_TAG}.arc"
             [ -f "$OUT_ARC" ] && echo "  $(du -h "$OUT_ARC" | cut -f1)  $OUT_ARC"
         done
+        ASSETS_DIR="translations/$LANG_TAG/assets"
+        if [ -d "$ASSETS_DIR" ]; then
+            N=$(ls "$ASSETS_DIR"/*.bin 2>/dev/null | wc -l)
+            echo "  ${N} files  $ASSETS_DIR/"
+        fi
     done
     echo ""
     echo "To activate a language, add this to settings.ini:"
     echo "  [Localization]"
     echo "  language = fr-FR   # or de-DE / it-IT / es-ES / en-EU"
     echo ""
-    echo "Player-choice strings (\"Never mind...\", \"Mail a letter\", etc.) are auto-translated"
-    echo "from the EUR disc — no manual work required."
+    echo "Player-choice strings (\"Never mind...\", \"Mail a letter\", etc.) and item/furniture"
+    echo "names (\"detour sign\", \"tall cactus\", etc.) are auto-translated from the EUR disc"
+    echo "— no manual work required."
     echo ""
     echo "To override with a custom translation for a specific language:"
     echo "  1. Dump the EUR strings as a starting point:"
