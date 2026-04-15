@@ -2,6 +2,9 @@
 #include "pc_settings.h"
 #include "pc_platform.h"
 #include "pc_assets.h"
+#include "pc_gx_internal.h"
+#include "pc_texture_pack.h"
+#include "jsyswrap.h"
 
 #ifndef _WIN32
 #include <dirent.h>
@@ -166,6 +169,10 @@ void pc_settings_apply(void) {
         printf("[Settings] Language changed: %s -> %s. Reloading assets...\n",
                g_last_applied_language, g_pc_language);
         pc_assets_init();
+        JW_ReloadArchives();
+        pc_gx_texture_cache_invalidate();
+        pc_texture_pack_shutdown();
+        pc_texture_pack_init();
         strncpy(g_last_applied_language, g_pc_language, sizeof(g_last_applied_language) - 1);
         g_last_applied_language[sizeof(g_last_applied_language) - 1] = '\0';
     }

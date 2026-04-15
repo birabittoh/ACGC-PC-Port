@@ -162,6 +162,7 @@ extern u32 JW_GetResSizeFileNo(int res_no);
 extern void JW_Init();
 extern void JW_Init2();
 extern void JW_Init3();
+extern void JW_ReloadArchives();
 extern void JW_Cleanup();
 
 #ifdef __cplusplus
