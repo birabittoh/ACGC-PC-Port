@@ -328,7 +328,7 @@ static void aAL_fade_out_start_wait_init(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
 
 #ifdef PC_ENHANCEMENTS
 static void aAL_pc_game_start_wait(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
-  int kLanguageOptionsCount = pc_settings_get_available_languages_count();
+  int languageOptionsCount = pc_settings_get_available_languages_count();
   GAME_PLAY* play = (GAME_PLAY*)game;
   u16 on_btn = gamePT->pads[PAD0].on.button;
   s8 stick_y = gamePT->pads[PAD0].now.stick_y;
@@ -407,17 +407,17 @@ static void aAL_pc_game_start_wait(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
             const char* lang = pc_settings_get_language();
             int i;
 
-            for (i = 0; i < kLanguageOptionsCount; i++) {
+            for (i = 0; i < languageOptionsCount; i++) {
               if (strcmp(lang, pc_settings_get_available_language(i)) == 0) {
                 break;
               }
             }
 
-            if (i >= kLanguageOptionsCount) {
+            if (i >= languageOptionsCount) {
               i = 0;
             }
 
-            i = (i + 1) % kLanguageOptionsCount;
+            i = (i + 1) % languageOptionsCount;
             pc_settings_set_language(pc_settings_get_available_language(i));
           } break;
         }
@@ -446,17 +446,17 @@ static void aAL_pc_game_start_wait(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
             const char* lang = pc_settings_get_language();
             int i;
 
-            for (i = 0; i < kLanguageOptionsCount; i++) {
+            for (i = 0; i < languageOptionsCount; i++) {
               if (strcmp(lang, pc_settings_get_available_language(i)) == 0) {
                 break;
               }
             }
 
-            if (i >= kLanguageOptionsCount) {
+            if (i >= languageOptionsCount) {
               i = 0;
             }
 
-            i = (i - 1 + kLanguageOptionsCount) % kLanguageOptionsCount;
+            i = (i - 1 + languageOptionsCount) % languageOptionsCount;
             pc_settings_set_language(pc_settings_get_available_language(i));
           } break;
         }
@@ -995,10 +995,8 @@ static void aAL_pc_options_draw(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
   {
     static u8 str_save[] = { 'S', 'T', 'A', 'R', 'T', ':', ' ', 'S', 'a', 'v', 'e' };
     static u8 str_back[] = { 'B', ':', ' ', 'B', 'a', 'c', 'k' };
-    static u8 str_restart[] = { '*', ' ', 'L', 'a', 'n', 'g', 'u', 'a', 'g', 'e', ' ', 'a', 'p', 'p', 'l', 'i', 'e', 's', ' ', 'o', 'n', ' ', 'r', 'e', 's', 't', 'a', 'r', 't' };
     mFont_SetLineStrings(game, str_save, sizeof(str_save), x, y, 255, 255, 255, 160, FALSE, TRUE, 1.0f, 1.0f, mFont_MODE_FONT);
     mFont_SetLineStrings(game, str_back, sizeof(str_back), 190.0f, y, 255, 255, 255, 160, FALSE, TRUE, 1.0f, 1.0f, mFont_MODE_FONT);
-    mFont_SetLineStrings(game, str_restart, sizeof(str_restart), x, y + line_h, 255, 220, 180, 140, FALSE, TRUE, 0.9f, 0.9f, mFont_MODE_FONT);
   }
 }
 
