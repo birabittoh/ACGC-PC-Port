@@ -511,6 +511,22 @@ def _build_forest_2nd(eur_arc_path: Path, usa_arc_path: Path, lang: str,
     with open(table_dst, "wb") as f:
         f.write(new_table)
 
+    # Patch villager names from the EUR forest_2nd.arc (same dir as forest_msg.arc),
+    # unless this is en-EU (EUR English names are identical to USA English).
+    if lang != "en-EU":
+        eur_2nd = eur_arc_path.parent / "forest_2nd.arc"
+        if eur_2nd.exists():
+            eur_2nd_root = _extract_arc(str(eur_2nd), os.path.join(tmp, "eur2nd"))
+            eur_npc_names = _find_file(eur_2nd_root, "npc_name_str_table.bin")
+            dst_npc_names = _find_file(pack_arc_root, "npc_name_str_table.bin")
+            if eur_npc_names and dst_npc_names:
+                shutil.copy2(eur_npc_names, dst_npc_names)
+                print(f"  Patched villager names from EUR forest_2nd.arc.")
+            else:
+                print("  Warning: npc_name_str_table.bin not found — skipping villager names.")
+        else:
+            print(f"  Warning: EUR forest_2nd.arc not found at {eur_2nd} — skipping villager names.")
+
     print(f"\nPacking forest_2nd.{lang}.arc...")
     _pack_arc(pack_arc_root, str(out_arc))
     print(f"  → {out_arc}")
