@@ -328,8 +328,7 @@ static void aAL_fade_out_start_wait_init(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
 
 #ifdef PC_ENHANCEMENTS
 static void aAL_pc_game_start_wait(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
-  static const char* kLanguageOptions[] = { "default", "pt-BR", "en", "es", "fr", "de", "it", "ja" };
-  enum { kLanguageOptionsCount = 8 };
+  int kLanguageOptionsCount = pc_settings_get_available_languages_count();
   GAME_PLAY* play = (GAME_PLAY*)game;
   u16 on_btn = gamePT->pads[PAD0].on.button;
   s8 stick_y = gamePT->pads[PAD0].now.stick_y;
@@ -409,7 +408,7 @@ static void aAL_pc_game_start_wait(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
             int i;
 
             for (i = 0; i < kLanguageOptionsCount; i++) {
-              if (strcmp(lang, kLanguageOptions[i]) == 0) {
+              if (strcmp(lang, pc_settings_get_available_language(i)) == 0) {
                 break;
               }
             }
@@ -419,7 +418,7 @@ static void aAL_pc_game_start_wait(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
             }
 
             i = (i + 1) % kLanguageOptionsCount;
-            pc_settings_set_language(kLanguageOptions[i]);
+            pc_settings_set_language(pc_settings_get_available_language(i));
           } break;
         }
       } else if (stick_x < -30 || (on_btn & BUTTON_DLEFT)) {
@@ -448,7 +447,7 @@ static void aAL_pc_game_start_wait(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
             int i;
 
             for (i = 0; i < kLanguageOptionsCount; i++) {
-              if (strcmp(lang, kLanguageOptions[i]) == 0) {
+              if (strcmp(lang, pc_settings_get_available_language(i)) == 0) {
                 break;
               }
             }
@@ -458,7 +457,7 @@ static void aAL_pc_game_start_wait(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
             }
 
             i = (i - 1 + kLanguageOptionsCount) % kLanguageOptionsCount;
-            pc_settings_set_language(kLanguageOptions[i]);
+            pc_settings_set_language(pc_settings_get_available_language(i));
           } break;
         }
       }

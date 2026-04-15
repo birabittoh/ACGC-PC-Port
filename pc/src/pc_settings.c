@@ -2,6 +2,11 @@
 #include "pc_settings.h"
 #include "pc_platform.h"
 
+#ifndef _WIN32
+#include <dirent.h>
+#include <sys/stat.h>
+#endif
+
 PCSettings g_pc_settings = {
     .window_width  = PC_SCREEN_WIDTH,
     .window_height = PC_SCREEN_HEIGHT,
@@ -14,6 +19,10 @@ PCSettings g_pc_settings = {
 };
 
 static char g_pc_language[32] = "default";
+
+#define MAX_AVAILABLE_LANGUAGES 32
+static char g_available_languages[MAX_AVAILABLE_LANGUAGES][32];
+static int g_available_languages_count = 0;
 
 static const char* SETTINGS_FILE = "settings.ini";
 
@@ -170,6 +179,8 @@ void pc_settings_apply(void) {
 }
 
 void pc_settings_load(void) {
+    pc_settings_refresh_available_languages();
+
     FILE* f = fopen(SETTINGS_FILE, "r");
     if (!f) {
         write_defaults(SETTINGS_FILE);
@@ -212,4 +223,82 @@ void pc_settings_set_language(const char* language) {
         strncpy(g_pc_language, language, sizeof(g_pc_language) - 1);
         g_pc_language[sizeof(g_pc_language) - 1] = '\0';
     }
+}
+
+static int compare_strings(const void* a, const void* b) {
+    return strcmp((const char*)a, (const char*)b);
+}
+
+void pc_settings_refresh_available_languages(void) {
+    g_available_languages_count = 0;
+    strcpy(g_available_languages[g_available_languages_count++], "default");
+
+    const char* translations_dir = "translations";
+#ifdef _WIN32
+    char search_path[MAX_PATH];
+    WIN32_FIND_DATAA fd;
+    HANDLE hFind;
+
+    snprintf(search_path, sizeof(search_path), "%s\\*", translations_dir);
+    hFind = FindFirstFileA(search_path, &fd);
+    if (hFind != INVALID_HANDLE_VALUE) {
+        do {
+            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                if (strcmp(fd.cFileName, ".") != 0 && strcmp(fd.cFileName, "..") != 0) {
+                    if (g_available_languages_count < MAX_AVAILABLE_LANGUAGES) {
+                        strncpy(g_available_languages[g_available_languages_count], fd.cFileName, 31);
+                        g_available_languages[g_available_languages_count][31] = '\0';
+                        g_available_languages_count++;
+                    }
+                }
+            }
+        } while (FindNextFileA(hFind, &fd));
+        FindClose(hFind);
+    }
+#else
+    DIR* dir = opendir(translations_dir);
+    if (dir) {
+        struct dirent* ent;
+        while ((ent = readdir(dir)) != NULL) {
+            bool is_dir = false;
+#ifdef _DIRENT_HAVE_D_TYPE
+            if (ent->d_type == DT_DIR) {
+                is_dir = true;
+            } else if (ent->d_type == DT_UNKNOWN) {
+#endif
+                char full_path[1024];
+                struct stat st;
+                snprintf(full_path, sizeof(full_path), "%s/%s", translations_dir, ent->d_name);
+                if (stat(full_path, &st) == 0 && S_ISDIR(st.st_mode)) {
+                    is_dir = true;
+                }
+#ifdef _DIRENT_HAVE_D_TYPE
+            }
+#endif
+            if (is_dir && strcmp(ent->d_name, ".") != 0 && strcmp(ent->d_name, "..") != 0) {
+                if (g_available_languages_count < MAX_AVAILABLE_LANGUAGES) {
+                    strncpy(g_available_languages[g_available_languages_count], ent->d_name, 31);
+                    g_available_languages[g_available_languages_count][31] = '\0';
+                    g_available_languages_count++;
+                }
+            }
+        }
+        closedir(dir);
+    }
+#endif
+
+    if (g_available_languages_count > 2) {
+        qsort(&g_available_languages[1], g_available_languages_count - 1, sizeof(g_available_languages[0]), compare_strings);
+    }
+}
+
+int pc_settings_get_available_languages_count(void) {
+    if (g_available_languages_count == 0) pc_settings_refresh_available_languages();
+    return g_available_languages_count;
+}
+
+const char* pc_settings_get_available_language(int index) {
+    if (g_available_languages_count == 0) pc_settings_refresh_available_languages();
+    if (index < 0 || index >= g_available_languages_count) return "default";
+    return g_available_languages[index];
 }
