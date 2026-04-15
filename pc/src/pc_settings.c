@@ -1,6 +1,15 @@
 /* pc_settings.c - runtime settings loaded from settings.ini */
 #include "pc_settings.h"
 #include "pc_platform.h"
+#include "pc_assets.h"
+#include "pc_gx_internal.h"
+#include "pc_texture_pack.h"
+#include "jsyswrap.h"
+
+#ifndef _WIN32
+#include <dirent.h>
+#include <sys/stat.h>
+#endif
 
 PCSettings g_pc_settings = {
     .window_width  = PC_SCREEN_WIDTH,
@@ -14,6 +23,11 @@ PCSettings g_pc_settings = {
 };
 
 static char g_pc_language[32] = "default";
+static char g_last_applied_language[32] = "default";
+
+#define MAX_AVAILABLE_LANGUAGES 32
+static char g_available_languages[MAX_AVAILABLE_LANGUAGES][32];
+static int g_available_languages_count = 0;
 
 static const char* SETTINGS_FILE = "settings.ini";
 
@@ -151,6 +165,18 @@ int pc_settings_get_nes_aspect(void) {
 void pc_settings_apply(void) {
     if (!g_pc_window) return;
 
+    if (strcmp(g_pc_language, g_last_applied_language) != 0) {
+        printf("[Settings] Language changed: %s -> %s. Reloading assets...\n",
+               g_last_applied_language, g_pc_language);
+        pc_assets_init();
+        JW_ReloadArchives();
+        pc_gx_texture_cache_invalidate();
+        pc_texture_pack_shutdown();
+        pc_texture_pack_init();
+        strncpy(g_last_applied_language, g_pc_language, sizeof(g_last_applied_language) - 1);
+        g_last_applied_language[sizeof(g_last_applied_language) - 1] = '\0';
+    }
+
     if (g_pc_settings.fullscreen == 1) {
         SDL_SetWindowFullscreen(g_pc_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
     } else if (g_pc_settings.fullscreen == 2) {
@@ -170,6 +196,8 @@ void pc_settings_apply(void) {
 }
 
 void pc_settings_load(void) {
+    pc_settings_refresh_available_languages();
+
     FILE* f = fopen(SETTINGS_FILE, "r");
     if (!f) {
         write_defaults(SETTINGS_FILE);
@@ -201,6 +229,9 @@ void pc_settings_load(void) {
            SETTINGS_FILE, g_pc_settings.window_width, g_pc_settings.window_height,
            g_pc_settings.fullscreen, g_pc_settings.vsync, g_pc_settings.msaa,
            g_pc_settings.preload_textures, g_pc_language);
+
+    strncpy(g_last_applied_language, g_pc_language, sizeof(g_last_applied_language) - 1);
+    g_last_applied_language[sizeof(g_last_applied_language) - 1] = '\0';
 }
 
 const char* pc_settings_get_language(void) {
@@ -212,4 +243,108 @@ void pc_settings_set_language(const char* language) {
         strncpy(g_pc_language, language, sizeof(g_pc_language) - 1);
         g_pc_language[sizeof(g_pc_language) - 1] = '\0';
     }
+}
+
+static int compare_strings(const void* a, const void* b) {
+    return strcmp((const char*)a, (const char*)b);
+}
+
+static int pc_dir_exists(const char* path) {
+#ifdef _WIN32
+    DWORD dwAttrib = GetFileAttributesA(path);
+    return (dwAttrib != INVALID_FILE_ATTRIBUTES && (dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
+#else
+    struct stat st;
+    return (stat(path, &st) == 0 && S_ISDIR(st.st_mode));
+#endif
+}
+
+void pc_settings_refresh_available_languages(void) {
+    g_available_languages_count = 0;
+    strcpy(g_available_languages[g_available_languages_count++], "default");
+
+    const char* candidates[] = {
+        "translations",
+        "../translations",
+        "../../translations",
+        "../../../translations",
+    };
+    const char* translations_dir = NULL;
+
+    for (int i = 0; i < (int)(sizeof(candidates) / sizeof(candidates[0])); i++) {
+        if (pc_dir_exists(candidates[i])) {
+            translations_dir = candidates[i];
+            break;
+        }
+    }
+
+    if (translations_dir == NULL) return;
+
+#ifdef _WIN32
+    char search_path[MAX_PATH];
+    WIN32_FIND_DATAA fd;
+    HANDLE hFind;
+
+    snprintf(search_path, sizeof(search_path), "%s\\*", translations_dir);
+    hFind = FindFirstFileA(search_path, &fd);
+    if (hFind != INVALID_HANDLE_VALUE) {
+        do {
+            if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                if (strcmp(fd.cFileName, ".") != 0 && strcmp(fd.cFileName, "..") != 0) {
+                    if (g_available_languages_count < MAX_AVAILABLE_LANGUAGES) {
+                        strncpy(g_available_languages[g_available_languages_count], fd.cFileName, 31);
+                        g_available_languages[g_available_languages_count][31] = '\0';
+                        g_available_languages_count++;
+                    }
+                }
+            }
+        } while (FindNextFileA(hFind, &fd));
+        FindClose(hFind);
+    }
+#else
+    DIR* dir = opendir(translations_dir);
+    if (dir) {
+        struct dirent* ent;
+        while ((ent = readdir(dir)) != NULL) {
+            bool is_dir = false;
+#ifdef _DIRENT_HAVE_D_TYPE
+            if (ent->d_type == DT_DIR) {
+                is_dir = true;
+            } else if (ent->d_type == DT_UNKNOWN) {
+#endif
+                char full_path[1024];
+                struct stat st;
+                snprintf(full_path, sizeof(full_path), "%s/%s", translations_dir, ent->d_name);
+                if (stat(full_path, &st) == 0 && S_ISDIR(st.st_mode)) {
+                    is_dir = true;
+                }
+#ifdef _DIRENT_HAVE_D_TYPE
+            }
+#endif
+            if (is_dir && strcmp(ent->d_name, ".") != 0 && strcmp(ent->d_name, "..") != 0) {
+                if (g_available_languages_count < MAX_AVAILABLE_LANGUAGES) {
+                    strncpy(g_available_languages[g_available_languages_count], ent->d_name, 31);
+                    g_available_languages[g_available_languages_count][31] = '\0';
+                    g_available_languages_count++;
+                }
+            }
+        }
+        closedir(dir);
+    }
+#endif
+
+    if (g_available_languages_count > 2) {
+        qsort(&g_available_languages[1], g_available_languages_count - 1, sizeof(g_available_languages[0]), compare_strings);
+    }
+}
+
+int pc_settings_get_available_languages_count(void) {
+    if (g_available_languages_count == 0) pc_settings_refresh_available_languages();
+    return g_available_languages_count;
+}
+
+const char* pc_settings_get_available_language(int index) {
+    if (g_available_languages_count == 0) pc_settings_refresh_available_languages();
+    if (index < 0 || index >= g_available_languages_count) return "default";
+    return g_available_languages[index];
 }

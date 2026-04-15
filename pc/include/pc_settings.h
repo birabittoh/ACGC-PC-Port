@@ -23,6 +23,9 @@ void pc_settings_save(void);
 void pc_settings_apply(void);
 const char* pc_settings_get_language(void);
 void pc_settings_set_language(const char* language);
+int pc_settings_get_available_languages_count(void);
+const char* pc_settings_get_available_language(int index);
+void pc_settings_refresh_available_languages(void);
 
 #ifdef __cplusplus
 }
