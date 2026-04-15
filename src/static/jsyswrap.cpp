@@ -6,6 +6,11 @@
 #include "libforest/emu64.h"
 #include "_mem.h"
 #include "m_lib.h"
+#include "m_msg.h"
+#include "m_string.h"
+#include "m_choice.h"
+#include "m_handbill.h"
+#include "m_npc.h"
 #include "dolphin/os/OSArena.h"
 #include "libc64/malloc.h"
 
@@ -538,10 +543,7 @@ extern void JW_Init() {
     JC_JKRExpHeap_changeGroupID(JC_JFWSystem_getSystemHeap(), 2);
 }
 
-extern void JW_Init2() {
-    JC_JKRExpHeap_changeGroupID(JC_JFWSystem_getSystemHeap(), 3);
-    ReportDiskID();
-
+static void JW_MountArchive1() {
     if (forest_arc_aram_p == nullptr) {
         const char* mount_name = "forest_1st.arc";
         forest_arc_aram_p = JC_JKRAramArchive_new();
@@ -549,18 +551,45 @@ extern void JW_Init2() {
         if (forest_arc_aram_p == nullptr ||
             JC__JKRMountFixedAramArchive(forest_arc_aram_p, mount_name) == FALSE) {
 #ifdef TARGET_PC
-            OSReport("[PC] JW_Init2: forest_1st.arc mount FAILED (continuing anyway)\n");
-            /* Don't fatal - continue without archive for now */
+            OSReport("[PC] JW_MountArchive1: forest_1st.arc mount FAILED (continuing anyway)\n");
 #else
             OSDVDFatalError();
 #endif
         }
 #ifdef TARGET_PC
         else {
-            OSReport("[PC] JW_Init2: forest_1st.arc mounted successfully!\n");
+            OSReport("[PC] JW_MountArchive1: forest_1st.arc mounted successfully!\n");
         }
 #endif
     }
+}
+
+static void JW_MountArchive2() {
+    if (forest_arc_aram2_p == nullptr) {
+        const char* mount_name = "forest_2nd.arc";
+        forest_arc_aram2_p = JC_JKRAramArchive_new();
+
+        if (forest_arc_aram2_p == nullptr ||
+            JC__JKRMountFixedAramArchive(forest_arc_aram2_p, mount_name) == FALSE) {
+#ifdef TARGET_PC
+            OSReport("[PC] JW_MountArchive2: forest_2nd.arc mount FAILED (continuing anyway)\n");
+#else
+            OSDVDFatalError();
+#endif
+        }
+#ifdef TARGET_PC
+        else {
+            OSReport("[PC] JW_MountArchive2: forest_2nd.arc mounted successfully!\n");
+        }
+#endif
+    }
+}
+
+extern void JW_Init2() {
+    JC_JKRExpHeap_changeGroupID(JC_JFWSystem_getSystemHeap(), 3);
+    ReportDiskID();
+
+    JW_MountArchive1();
 
     gameheap_len = JC_JKRHeap_getFreeSize(JC_JFWSystem_getSystemHeap()) - 0x10000;
     gameheap_base = JC_JKRHeap_alloc(JC_JFWSystem_getSystemHeap(), gameheap_len, 32);
@@ -569,23 +598,45 @@ extern void JW_Init2() {
 }
 
 extern void JW_Init3() {
-    if (forest_arc_aram2_p == nullptr) {
-        const char* mount_name = "forest_2nd.arc";
-        forest_arc_aram2_p = JC_JKRAramArchive_new();
+    JW_MountArchive2();
+}
 
-        if (forest_arc_aram2_p == nullptr ||
-            JC__JKRMountFixedAramArchive(forest_arc_aram2_p, mount_name) == FALSE) {
-#ifdef TARGET_PC
-            OSReport("[PC] JW_Init3: forest_2nd.arc mount FAILED (continuing anyway)\n");
-#else
-            OSDVDFatalError();
-#endif
+extern "C" void JW_ReloadArchives() {
+    if (forest_arc_aram_p != nullptr) {
+        JC__JKRUnmountFixedAramArchive(forest_arc_aram_p);
+        JC_JKRAramArchive_delete(forest_arc_aram_p);
+        forest_arc_aram_p = nullptr;
+    }
+
+    if (forest_arc_aram2_p != nullptr) {
+        JC__JKRUnmountFixedAramArchive(forest_arc_aram2_p);
+        JC_JKRAramArchive_delete(forest_arc_aram2_p);
+        forest_arc_aram2_p = nullptr;
+    }
+
+    JW_MountArchive1();
+    JW_MountArchive2();
+
+    /* Refresh pointers to files inside the archives */
+    mMsg_aram_init();
+    mMsg_aram_init2();
+    mString_aram_init();
+    mChoice_aram_init();
+    mHandbill_aram_init();
+    mNpc_InitNpcData();
+
+    /* Refresh current message state if active */
+    {
+        mMsg_Window_c* msg = mMsg_Get_base_window_p();
+        if (msg != nullptr) {
+            msg->data_loaded = FALSE;
         }
-#ifdef TARGET_PC
-        else {
-            OSReport("[PC] JW_Init3: forest_2nd.arc mounted successfully!\n");
-        }
-#endif
+    }
+
+    /* Refresh font */
+    {
+        extern void _pc_load_JUTResFONT_Ascfont_fix12(void);
+        _pc_load_JUTResFONT_Ascfont_fix12();
     }
 }
 
