@@ -493,6 +493,7 @@ static void aAL_pc_game_start_wait(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
       }
     } else {
       /* Options */
+      pc_settings_refresh_available_languages();
       actor->pc_options_open = 1;
       actor->pc_cursor_cooldown = 10;
     }
