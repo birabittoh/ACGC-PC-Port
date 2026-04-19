@@ -171,6 +171,61 @@ Graphics settings are stored in `settings.ini` (next to the executable) and can 
 - MSAA (anti-aliasing)
 - Texture Loading/Caching (No need to enable if you aren't using a texture pack)
 
+## Localization
+
+The game supports the five languages from the European release: English (EU), French, German, Italian, and Spanish.
+
+### Requirements
+
+- **Animal Crossing (USA) disc image** — same one used to run the game
+- **Animal Crossing (EUR) disc image** (`GAFP01`, ISO/GCM/CISO format)
+- **Python 3.9+**
+
+### Setup
+
+1. Place the EUR disc image at `orig/GAFP01_00/game.ciso` (or pass it as an argument).
+
+2. Run the extraction script:
+   ```bash
+   ./extract_translations.sh
+   ```
+   This generates translation archives under `translations/` for each language.
+
+3. Place the `translations/` folder next to the executable.
+
+4. Edit `settings.ini` and set your language:
+   ```ini
+   [Localization]
+   language = fr-FR   # en-EU / fr-FR / de-DE / it-IT / es-ES
+   ```
+
+5. Launch the game — the selected language will be active immediately.
+
+> **Tip:** To also generate human-readable text dumps for translators, run `./extract_translations.sh --text`. Text files are written to `text/GAFP01_00/`.
+
+### Supported Languages
+
+| Code    | Language         |
+|---------|------------------|
+| `en-EU` | English (Europe) |
+| `fr-FR` | French           |
+| `de-DE` | German           |
+| `it-IT` | Italian          |
+| `es-ES` | Spanish          |
+
+### Custom Translations
+
+Player-choice strings and item/furniture names are pulled automatically from the EUR disc. To override them for a specific language:
+
+1. Dump the EUR strings as a starting point:
+   ```bash
+   python -m tools.l10n_flow dump-select-eur \
+       --eur-1st-script-arc orig/GAFP01_00/tgc_Frn/files/forest_1st_script.arc \
+       --out text/select_Frn.txt   # Frn / Gmn / Itl / Spn / Eng
+   ```
+2. Edit the resulting `text/select_<Lang>.txt` file.
+3. Delete `translations/<lang>/forest_1st.<lang>.arc` and re-run `./extract_translations.sh` — it picks up the custom file automatically.
+
 ## Texture Packs
 
 Custom textures can be placed in the `texture_pack/` folder next to the executable. Dolphin-compatible format (XXHash64, DDS).
