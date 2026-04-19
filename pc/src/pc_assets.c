@@ -91,7 +91,7 @@ void pc_load_asset(const char* bin_path, void* dest, unsigned int size,
         const char* lang = pc_settings_get_language();
         if (lang && lang[0] != '\0' && strcmp(lang, "default") != 0) {
             char localized[768];
-            snprintf(localized, sizeof(localized), "translations/%s/%s", lang, bin_path);
+            snprintf(localized, sizeof(localized), "%s/%s/%s", pc_settings_get_translations_dir(), lang, bin_path);
             FILE* f = fopen(localized, "rb");
             if (f) { fread(dest, 1, size, f); fclose(f); loaded = 1; }
         }
