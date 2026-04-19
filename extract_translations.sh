@@ -147,6 +147,30 @@ for entry in "${LANGUAGES[@]}"; do
         "$DTK" disc extract "$TGC_FILE" "$TGC_OUT/" > /dev/null
     fi
 
+    # ── Copy msg.bin for runtime EUR loader ───────────────────────────────────
+    RUNTIME_MSG="translations/$LANG_TAG/msg.bin"
+    if [ ! -f "$RUNTIME_MSG" ]; then
+        step "[$LANG_TAG] Extracting msg.bin for runtime..."
+        TMP_MSG2=$(mktemp -d)
+        trap 'rm -rf "$TMP_MSG2"' EXIT
+        "$PYTHON" -c "
+import sys; sys.path.insert(0,'.')
+sys.path.insert(0,'./tools')
+from arc_tool import unpack_archive
+unpack_archive('$EUR_ARC', '$TMP_MSG2')
+" 2>/dev/null
+        MSG_BIN2=$(find "$TMP_MSG2" -name "msg.bin" | head -1)
+        if [ -n "$MSG_BIN2" ]; then
+            mkdir -p "translations/$LANG_TAG"
+            cp "$MSG_BIN2" "$RUNTIME_MSG"
+            echo -e "  ${C_GREEN}→ $RUNTIME_MSG${C_RESET}"
+        else
+            warn "[$LANG_TAG] msg.bin not found in forest_msg.arc"
+        fi
+        trap - EXIT
+        rm -rf "$TMP_MSG2"
+    fi
+
     # ── Text dump ─────────────────────────────────────────────────────────────
     if [ "$DO_TEXT" -eq 1 ]; then
         TEXT_OUT="$TEXT_DIR/msg_${TGC_CODE}.txt"
@@ -228,6 +252,8 @@ if [ "$DO_ARC" -eq 1 ]; then
             N=$(ls "$ASSETS_DIR"/*.bin 2>/dev/null | wc -l)
             echo "  ${N} files  $ASSETS_DIR/"
         fi
+        MSG_RT="translations/$LANG_TAG/msg.bin"
+        [ -f "$MSG_RT" ] && echo "  $(du -h "$MSG_RT" | cut -f1)  $MSG_RT  (runtime EUR messages)"
     done
     echo ""
     echo "To activate a language, add this to settings.ini:"

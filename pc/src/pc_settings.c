@@ -25,6 +25,7 @@ PCSettings g_pc_settings = {
 };
 
 static char g_pc_language[32] = "default";
+static char g_translations_dir[256] = "translations";
 static char g_last_applied_language[32] = "default";
 
 #define MAX_AVAILABLE_LANGUAGES 32
@@ -392,6 +393,10 @@ const char* pc_settings_get_language(void) {
     return g_pc_language;
 }
 
+const char* pc_settings_get_translations_dir(void) {
+    return g_translations_dir;
+}
+
 void pc_settings_set_language(const char* language) {
     if (language != NULL && *language != '\0') {
         strncpy(g_pc_language, language, sizeof(g_pc_language) - 1);
@@ -433,6 +438,8 @@ void pc_settings_refresh_available_languages(void) {
     }
 
     if (translations_dir == NULL) return;
+    strncpy(g_translations_dir, translations_dir, sizeof(g_translations_dir) - 1);
+    g_translations_dir[sizeof(g_translations_dir) - 1] = '\0';
 
 #ifdef _WIN32
     char search_path[MAX_PATH];

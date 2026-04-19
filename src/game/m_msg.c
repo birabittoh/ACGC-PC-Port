@@ -11,6 +11,7 @@
 #include "sys_matrix.h"
 #ifdef TARGET_PC
 #include "pc_bswap.h"
+#include "pc/include/pc_msg_eur.h"
 #endif
 
 static u32 Msg_table_rom_start = 0;
@@ -102,6 +103,9 @@ extern void mMsg_aram_init() {
 }
 
 extern void mMsg_aram_init2() {
+#ifdef TARGET_PC
+    pc_msg_eur_ensure_loaded();  /* prime the EUR loader if language is set */
+#endif
     Msg_table_rom_start = JW_GetAramAddress(RESOURCE_MESSAGE_TABLE);
     Msg_rom_start = JW_GetAramAddress(RESOURCE_MESSAGE);
 }
