@@ -542,7 +542,7 @@ def _translate_npc_names(pack_arc_root: str, lang: str) -> None:
         return  # en-EU or unknown — keep USA names
 
     sys.path.insert(0, str(TOOLS_DIR))
-    from select_tool import parse_select, encode_ac_str, VALID_COUNT, TABLE_TOTAL
+    from select_tool import encode_ac_str
     import struct
 
     data_path  = _find_file(pack_arc_root, "string_data.bin")
@@ -556,34 +556,54 @@ def _translate_npc_names(pack_arc_root: str, lang: str) -> None:
     orig_data_size  = len(data_bytes)
     orig_table_size = len(table_bytes)
 
-    entries = list(parse_select(data_bytes, table_bytes))   # list[bytes], len=VALID_COUNT
+    # Derive actual entry count from table: table has (N+1) big-endian u32 offsets.
+    # Entry i spans data[table[i] : table[i+1]].
+    n_entries = len(table_bytes) // 4 - 1
+    if n_entries < 1:
+        print("  Warning: string_data_table.bin too small — skipping NPC name translation.")
+        return
+
+    # Read all entries verbatim from the original data+table.
+    entries: list[bytes] = []
+    for i in range(n_entries):
+        start_off = struct.unpack_from(">I", table_bytes, i * 4)[0]
+        end_off   = struct.unpack_from(">I", table_bytes, (i + 1) * 4)[0]
+        entries.append(data_bytes[start_off:end_off])
+
+    # Substitute translated NPC names.
     translated = _EUR_NPC_NAMES[lang]
-    start = _NPC_NAME_INDEX_START
-
+    name_start = _NPC_NAME_INDEX_START
     for i, name in enumerate(translated):
-        idx = start + i
-        if idx >= VALID_COUNT:
+        idx = name_start + i
+        if idx >= n_entries:
             break
-        encoded = encode_ac_str(name)
-        entries[idx] = encoded
+        entries[idx] = encode_ac_str(name)
 
-    # Re-encode into data + table
+    # Re-encode preserving ALL entries.
     new_data  = bytearray()
-    new_table = bytearray(orig_table_size)  # TABLE_TOTAL * 4, zero-filled
-
-    for i in range(VALID_COUNT):
+    new_table = bytearray(orig_table_size)  # keep original table file size
+    struct.pack_into(">I", new_table, 0, 0)  # entry 0 starts at offset 0
+    for i in range(n_entries):
         new_data.extend(entries[i])
-        struct.pack_into(">I", new_table, i * 4, len(new_data))
+        struct.pack_into(">I", new_table, (i + 1) * 4, len(new_data))
 
     if len(new_data) < orig_data_size:
         new_data.extend(b"\x00" * (orig_data_size - len(new_data)))
+
+    # Sanity: month/day ROM entries must not be zero-length.
+    for check_idx, label in ((0x64E, "DAY_START"), (0x66D, "MONTH_START")):
+        if check_idx + 1 < len(new_table) // 4:
+            s = struct.unpack_from(">I", new_table, check_idx * 4)[0]
+            e = struct.unpack_from(">I", new_table, (check_idx + 1) * 4)[0]
+            if e <= s:
+                print(f"  Warning: string_data[{check_idx:#x}] ({label}) is empty after repack!")
 
     Path(data_path).write_bytes(bytes(new_data))
     Path(table_path).write_bytes(bytes(new_table))
 
     changed = sum(1 for i, n in enumerate(translated)
                   if n != _NPC_NAME_USA[i])
-    print(f"  Translated {changed} NPC names for {lang}.")
+    print(f"  Translated {changed} NPC names for {lang} ({n_entries} total string_data entries preserved).")
 
 
 def _extract_eur_select_strings(eur_1st_script_arc: Path, tmp: str) -> list[str]:

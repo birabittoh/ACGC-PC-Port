@@ -509,3 +509,13 @@ const char* pc_settings_get_available_language(int index) {
     if (index < 0 || index >= g_available_languages_count) return "default";
     return g_available_languages[index];
 }
+
+int pc_settings_is_eur_locale(void) {
+    const char* lang = pc_settings_get_language();
+    if (!lang) return 0;
+    return (strcmp(lang, "en-EU") == 0 ||
+            strcmp(lang, "fr-FR") == 0 ||
+            strcmp(lang, "de-DE") == 0 ||
+            strcmp(lang, "it-IT") == 0 ||
+            strcmp(lang, "es-ES") == 0);
+}

@@ -188,8 +188,18 @@ def _cmd_groups(segs: list) -> list[list]:
 def collect_mappings(
     usa_entries: dict[int, str],
     eur_entries: dict[int, str],
+    lang_code: str | None = None,
+    seen_in: dict[str, set] | None = None,
 ) -> tuple[dict, int, int]:
     """Align by text-run boundaries and build EUR payload → USA code mapping.
+
+    Args:
+        usa_entries:  parsed USA dump
+        eur_entries:  parsed EUR dump (one language)
+        lang_code:    optional label for this EUR dump (e.g. "Eng"), recorded
+                      in ``seen_in`` for provenance tracking
+        seen_in:      optional dict {eur_payload_hex: set of lang_codes} to
+                      accumulate across multiple calls
 
     Returns:
         mappings: dict {eur_payload_hex: Counter({(usa_tag, usa_args): count})}
@@ -229,8 +239,18 @@ def collect_mappings(
                 continue
             for (_, usa_tag, usa_args), (_, _eur_len, eur_payload) in zip(usa_cmds, eur_cmds):
                 mappings[eur_payload][(usa_tag, usa_args)] += 1
+                if seen_in is not None and lang_code is not None:
+                    if eur_payload not in seen_in:
+                        seen_in[eur_payload] = set()
+                    seen_in[eur_payload].add(lang_code)
 
     return mappings, skipped, aligned
+
+
+def merge_mappings(base: dict, extra: dict) -> None:
+    """Merge ``extra`` Counter dict into ``base`` in place."""
+    for payload, counter in extra.items():
+        base[payload].update(counter)
 
 
 # ---------------------------------------------------------------------------
@@ -251,6 +271,7 @@ def plain_text_eur(text: str) -> str:
 
 def build_mapping_json(
     mappings: dict[str, Counter],
+    seen_in: dict[str, set] | None = None,
 ) -> dict:
     """Convert the raw mapping Counter into a JSON-serialisable dict.
 
@@ -261,7 +282,8 @@ def build_mapping_json(
               {"usa_tag": "...", "usa_args": "...", "count": N},
               ...
             ],
-            "ambiguous": true/false
+            "ambiguous": true/false,
+            "seen_in": ["Eng", "Itl", ...]  // only when seen_in provided
           }
         }
     """
@@ -271,10 +293,13 @@ def build_mapping_json(
             {"usa_tag": tag, "usa_args": args, "count": cnt}
             for (tag, args), cnt in counter.most_common()
         ]
-        out[eur_payload] = {
+        entry: dict = {
             "mappings": entries_list,
             "ambiguous": len(entries_list) > 1,
         }
+        if seen_in is not None and eur_payload in seen_in:
+            entry["seen_in"] = sorted(seen_in[eur_payload])
+        out[eur_payload] = entry
     return out
 
 
@@ -282,9 +307,17 @@ def build_mapping_json(
 # Main comparison
 # ---------------------------------------------------------------------------
 
+def _lang_code_from_path(path: str) -> str:
+    """Derive a short language label from a dump filename (e.g. msg_Itl.txt → 'Itl')."""
+    stem = Path(path).stem  # e.g. "msg_Itl"
+    if "_" in stem:
+        return stem.rsplit("_", 1)[-1]
+    return stem
+
+
 def compare(
     usa_path: str,
-    eur_path: str,
+    eur_paths: list[str],
     output_path: str | None,
     mapping_path: str | None,
     max_diff_entries: int = 50,
@@ -293,7 +326,9 @@ def compare(
     usa_entries = parse_entries(usa_path)
     print(f"  → {len(usa_entries):,} entries found")
 
-    print(f"Parsing EUR: {eur_path}")
+    # Primary EUR file used for the text-comparison report
+    eur_path = eur_paths[0]
+    print(f"Parsing EUR (primary): {eur_path}")
     eur_entries = parse_entries(eur_path)
     print(f"  → {len(eur_entries):,} entries found")
 
@@ -339,7 +374,23 @@ def compare(
     w("  (Aligned by text-run boundaries; EUR payload = bytes after 0x80 <len>)")
     w("")
 
-    mappings, skipped, aligned = collect_mappings(usa_entries, eur_entries)
+    seen_in: dict[str, set] = {}
+    primary_lang = _lang_code_from_path(eur_path)
+    mappings, skipped, aligned = collect_mappings(
+        usa_entries, eur_entries, lang_code=primary_lang, seen_in=seen_in
+    )
+
+    for extra_eur_path in eur_paths[1:]:
+        lang = _lang_code_from_path(extra_eur_path)
+        print(f"Parsing EUR (extra): {extra_eur_path}")
+        extra_eur = parse_entries(extra_eur_path)
+        print(f"  → {len(extra_eur):,} entries found")
+        extra_mappings, extra_skipped, extra_aligned = collect_mappings(
+            usa_entries, extra_eur, lang_code=lang, seen_in=seen_in
+        )
+        merge_mappings(mappings, extra_mappings)
+        skipped += extra_skipped
+        aligned += extra_aligned
 
     one_to_one  = {k: v for k, v in mappings.items() if len(v) == 1}
     ambiguous   = {k: v for k, v in mappings.items() if len(v) > 1}
@@ -436,7 +487,7 @@ def compare(
 
     # ---- Mapping JSON -------------------------------------------------------
     if mapping_path:
-        mapping_data = build_mapping_json(mappings)
+        mapping_data = build_mapping_json(mappings, seen_in=seen_in)
         Path(mapping_path).write_text(
             json.dumps(mapping_data, indent=2, ensure_ascii=False),
             encoding="utf-8",
@@ -456,7 +507,13 @@ def main() -> None:
         description="Compare Animal Crossing USA vs EUR message dumps."
     )
     parser.add_argument("usa_file",  help="Path to message_dump.txt  (USA)")
-    parser.add_argument("eur_file",  help="Path to msg_Eng.txt  (EUR)")
+    parser.add_argument(
+        "eur_files",
+        nargs="+",
+        metavar="eur_file",
+        help="One or more EUR dump files (msg_Eng.txt, msg_Itl.txt, …). "
+             "The first file is used for the report; all contribute to the mapping.",
+    )
     parser.add_argument(
         "--output", "-o",
         default="ac_comparison_report.txt",
@@ -473,7 +530,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    compare(args.usa_file, args.eur_file, args.output, args.emit_mapping, args.max_diffs)
+    compare(args.usa_file, args.eur_files, args.output, args.emit_mapping, args.max_diffs)
 
 
 if __name__ == "__main__":

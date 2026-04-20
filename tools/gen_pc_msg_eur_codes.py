@@ -180,9 +180,43 @@ def bytes_to_c_array(data: bytes) -> str:
     return ", ".join(f"0x{b:02X}" for b in data)
 
 
+def _extract_color_palette(raw: dict) -> list[tuple[int, int, int, int]]:
+    """Extract (idx, R, G, B) table from FF 00 00 XX entries in the mapping JSON.
+
+    idx 0x00 is the close-color code and is excluded (handled as reset).
+    COLORCHARS entries (6-byte USA: 7F 50 R G B N) → take R G B, drop N.
+    TEXTCOLOR  entries (5-byte USA: 7F 05 R G B)   → take R G B.
+    """
+    palette: list[tuple[int, int, int, int]] = []
+    for eur_payload_hex, v in raw.items():
+        parts = eur_payload_hex.strip().split()
+        if len(parts) < 4:
+            continue
+        if parts[0] != "FF" or parts[1] != "00" or parts[2] != "00":
+            continue
+        idx = int(parts[3], 16)
+        if idx == 0x00:
+            continue  # close-color handled as reset
+        best = v["mappings"][0]
+        usa_tag  = best["usa_tag"]
+        usa_args = hex_to_bytes(best["usa_args"])
+        if usa_tag == "COLORCHARS" and len(usa_args) >= 3:
+            r, g, b = usa_args[0], usa_args[1], usa_args[2]
+        elif usa_tag == "TEXTCOLOR" and len(usa_args) >= 3:
+            r, g, b = usa_args[0], usa_args[1], usa_args[2]
+        else:
+            continue
+        palette.append((idx, r, g, b))
+    palette.sort(key=lambda x: x[0])
+    return palette
+
+
 def generate(mapping_path: str, out_path: str) -> None:
     with open(mapping_path) as f:
         raw = json.load(f)
+
+    # Extract colour palette before touching entries
+    color_palette = _extract_color_palette(raw)
 
     # Build flat list: (eur_payload_bytes, usa_tag, usa_args_bytes)
     # Use most-common mapping for ambiguous entries.
@@ -205,6 +239,10 @@ def generate(mapping_path: str, out_path: str) -> None:
         # EUR payload is much longer than what the USA code expects.
         if usa_tag == "GENDERCHAR":
             continue  # handled separately by pc_msg_eur_translate_gender_cmd
+
+        # Skip FF 00 00 XX colour family — handled by a parametric handler below.
+        if len(eur_bytes) >= 3 and eur_bytes[0] == 0xFF and eur_bytes[1] == 0x00 and eur_bytes[2] == 0x00:
+            continue
 
         entries.append((eur_bytes, usa_tag, usa_args))
 
@@ -279,6 +317,46 @@ def generate(mapping_path: str, out_path: str) -> None:
     w("    /* --- Gender-switch (variable length) -------------------------------- */")
     w("    if (n >= 3 && p[0] == 0x13 && p[1] == 0x00 && p[2] == 0x14)")
     w("        return pc_msg_eur_translate_gender_cmd(p, n, out);")
+    w("")
+    w("    /* --- Choice string display: 02 00 02 <id0_hi id0_lo> ... ------------- */")
+    w("    /* EUR: 02 00 02 <N pairs of big-endian choice IDs> → SetSelectStringN  */")
+    w("    if (n >= 7 && p[0] == 0x02 && p[1] == 0x00 && p[2] == 0x02) {")
+    w("        u32 n_ids = (n - 3) / 2;")
+    w("        u8 usa_op;")
+    w("        if      (n_ids == 2) usa_op = mFont_CONT_CODE_SET_SELECT_STRING_2;")
+    w("        else if (n_ids == 3) usa_op = mFont_CONT_CODE_SET_SELECT_STRING_3;")
+    w("        else if (n_ids == 4) usa_op = mFont_CONT_CODE_SET_SELECT_STRING_4;")
+    w("        else return 0;")
+    w("        out[0] = 0x7F; out[1] = usa_op;")
+    w("        memcpy(out + 2, p + 3, n_ids * 2);")
+    w("        return 2 + n_ids * 2;")
+    w("    }")
+    w("")
+    w("    /* --- Colour-change family: FF 00 00 <idx> ----------------------------- */")
+    w("    /* Emits mFont_CONT_CODE_COLOR (span-based, no char count) so the same  */")
+    w("    /* translation works regardless of language or string length.            */")
+    w("    /* idx=00: close / reset to default text colour (50,60,50).             */")
+    if color_palette:
+        w("    if (n >= 4 && p[0] == 0xFF && p[1] == 0x00 && p[2] == 0x00) {")
+        w("        static const struct { u8 idx; u8 r; u8 g; u8 b; } sColPal[] = {")
+        for idx, r, g, b in color_palette:
+            w(f"            {{ 0x{idx:02X}, 0x{r:02X}, 0x{g:02X}, 0x{b:02X} }},")
+        w("        };")
+        w("        u8 cidx = p[3];")
+        w("        u8 cr = 0x32, cg = 0x3C, cb = 0x32; /* default text colour */")
+        w("        if (cidx != 0x00) {")
+        w("            int ci;")
+        w("            for (ci = 0; ci < (int)(sizeof(sColPal)/sizeof(sColPal[0])); ci++) {")
+        w("                if (sColPal[ci].idx == cidx) {")
+        w("                    cr = sColPal[ci].r; cg = sColPal[ci].g; cb = sColPal[ci].b;")
+        w("                    break;")
+        w("                }")
+        w("            }")
+        w("        }")
+        w("        out[0] = 0x7F; out[1] = mFont_CONT_CODE_COLOR;")
+        w("        out[2] = cr; out[3] = cg; out[4] = cb;")
+        w("        return 5;")
+        w("    }")
     w("")
 
     # Determine max EUR payload length for fixed-width table (no compound literals)

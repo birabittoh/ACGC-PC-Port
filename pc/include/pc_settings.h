@@ -30,6 +30,7 @@ int pc_settings_get_available_languages_count(void);
 const char* pc_settings_get_available_language(int index);
 void pc_settings_refresh_available_languages(void);
 const char* pc_settings_get_translations_dir(void);
+int pc_settings_is_eur_locale(void);
 
 #ifdef __cplusplus
 }

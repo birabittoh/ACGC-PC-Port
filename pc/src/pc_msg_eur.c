@@ -242,7 +242,36 @@ static int translate_entries(const u32* offsets, u32 n,
                     memcpy(s_data + write_pos, tmp_out, written);
                     write_pos += written;
                 }
-                /* else: unrecognised payload — skip silently */
+                /* else: unrecognised payload — log once and skip */
+                if (written == 0) {
+#ifdef PC_MSG_EUR_LOG_UNKNOWN
+                    {
+                        static u32 s_logged_n = 0;
+                        u32 already = 0, li;
+                        static u8 s_logged[64][8];
+                        static u8 s_logged_len[64];
+                        for (li = 0; li < s_logged_n && li < 64; li++) {
+                            if (pay_len == s_logged_len[li] &&
+                                memcmp(payload, s_logged[li], pay_len < 8 ? pay_len : 8) == 0) {
+                                already = 1; break;
+                            }
+                        }
+                        if (!already && s_logged_n < 64) {
+                            u32 cplen = pay_len < 8 ? pay_len : 8;
+                            memcpy(s_logged[s_logged_n], payload, cplen);
+                            s_logged_len[s_logged_n] = (u8)cplen;
+                            s_logged_n++;
+                            {
+                                u32 pi;
+                                fprintf(stderr, "[pc_msg_eur] unknown payload entry %u off %u: ", i, j - src_start);
+                                for (pi = 0; pi < pay_len; pi++)
+                                    fprintf(stderr, "%02X ", payload[pi]);
+                                fprintf(stderr, "\n");
+                            }
+                        }
+                    }
+#endif /* PC_MSG_EUR_LOG_UNKNOWN */
+                }
 
                 j += total_size;
             } else {
