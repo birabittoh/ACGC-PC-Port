@@ -463,6 +463,9 @@ enum {
 #define mFont_CHAR_FLAG_USE_POLY 2
 #define mFont_CHAR_FLAG_SCALE 4
 #define mFont_CHAR_FLAG_SCALE_RESET 8
+#ifdef TARGET_PC
+#define mFont_CHAR_FLAG_COLOR_SPAN 0x10  /* persistent span-color; inhibits color_ctr decrement */
+#endif
 
 /* sizeof(struct font_char_s) == 0x40 */
 typedef struct font_char_s {

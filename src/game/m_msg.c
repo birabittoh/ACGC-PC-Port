@@ -12,6 +12,7 @@
 #ifdef TARGET_PC
 #include "pc_bswap.h"
 #include "pc/include/pc_msg_eur.h"
+#include "pc/include/pc_settings.h"
 #endif
 
 static u32 Msg_table_rom_start = 0;

@@ -579,7 +579,11 @@ static int mMsg_Main_Cursol_PutString_Item(mMsg_Window_c* msg_p, int idx, int it
     msg_p->status_flags &= ~mMsg_STATUS_FLAG_CUT_ARTICLE;
   }
   else {
+#ifdef TARGET_PC
+    article = pc_settings_is_eur_locale() ? mIN_ARTICLE_NONE : mIN_ARTICLE_NUM;
+#else
     article = mIN_ARTICLE_NUM;
+#endif
   }
 
   msg_p->status_flags &= ~mMsg_STATUS_FLAG_CAPITALIZE;

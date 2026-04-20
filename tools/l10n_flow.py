@@ -51,16 +51,17 @@ META_FILE_NAME = "l10n_meta.json"
 
 # ── NPC name translation tables ───────────────────────────────────────────────
 # Extracted from EUR forest_1st_script.arc → string.bin (verified against live data).
-# Order matches USA string_data.bin entries 517-536:
-#   Tom Nook, Redd, Katrina, Saharah, Wendell, Jingle, Gracie, Joan,
-#   Pelly, Phyllis, Pete, Copper, Porter, Jack, Gyroid, K.K.,
-#   Rover, Chip, Timmy, Tommy
+# Order matches USA string_data.bin entries 516-535 (Tom Nook=0x204 .. Tommy=0x217).
 _NPC_NAME_USA = [
     "Tom Nook", "Redd", "Katrina", "Saharah", "Wendell", "Jingle",
     "Gracie", "Joan", "Pelly", "Phyllis", "Pete", "Copper", "Porter",
     "Jack", "Gyroid", "K.K.", "Rover", "Chip", "Timmy", "Tommy",
 ]
-_NPC_NAME_INDEX_START = 517  # first string_data.bin index holding a NPC name
+_NPC_NAME_INDEX_START = 516  # first string_data.bin index holding a NPC name (Tom Nook = 0x204)
+
+# Blathers, Mabel, Sable live at separate indices (0x4e3-0x4e5) outside the main block.
+_NPC_EXTRA_USA  = ["Blathers", "Mabel", "Sable"]
+_NPC_EXTRA_INDEX_START = 0x4e3  # 1251
 
 _EUR_NPC_NAMES: dict[str, list[str]] = {
     "it-IT": [
@@ -87,6 +88,36 @@ _EUR_NPC_NAMES: dict[str, list[str]] = {
     ],
     # en-EU intentionally omitted: keep USA English names as-is
 }
+
+# Blathers/Mabel/Sable translated names at indices 0x4e3-0x4e5.
+_EUR_NPC_EXTRA: dict[str, list[str]] = {
+    "it-IT": ["Blatero", "Agostina", "Filomena"],
+    "fr-FR": ["Thibou",  "Isabelle",  "Coco"],
+    "de-DE": ["Eugen",   "Nähchen",  "Mähchen"],
+    "es-ES": ["Fili",    "Isabela",   "Costura"],
+}
+
+_EUR_MONTHS: dict[str, list[str]] = {
+    "it-IT": ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno",
+              "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"],
+    "fr-FR": ["janvier", "f\u00e9vrier", "mars", "avril", "mai", "juin",
+              "juillet", "ao\u00fbt", "septembre", "octobre", "novembre", "d\u00e9cembre"],
+    "de-DE": ["Januar", "Februar", "M\u00e4rz", "April", "Mai", "Juni",
+              "Juli", "August", "September", "Oktober", "November", "Dezember"],
+    "es-ES": ["enero", "febrero", "marzo", "abril", "mayo", "junio",
+              "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"],
+    # en-EU intentionally omitted: keep USA English months
+}
+_EUR_DAYS: dict[str, list[str]] = {
+    lang: [str(n) for n in range(1, 32)]
+    for lang in ("it-IT", "fr-FR", "de-DE", "es-ES")
+    # en-EU intentionally omitted: keep USA English ordinals
+}
+_DAY_INDEX_START   = 0x64E   # mString_DAY_START   (include/m_string_data.h)
+_DAY_INDEX_COUNT   = 31
+_MONTH_INDEX_START = 0x66D   # mString_MONTH_START  (include/m_string_data.h)
+_MONTH_INDEX_COUNT = 12
+
 TOOLS_DIR = Path(__file__).resolve().parent
 ROOT_DIR = TOOLS_DIR.parent
 
@@ -570,7 +601,7 @@ def _translate_npc_names(pack_arc_root: str, lang: str) -> None:
         end_off   = struct.unpack_from(">I", table_bytes, (i + 1) * 4)[0]
         entries.append(data_bytes[start_off:end_off])
 
-    # Substitute translated NPC names.
+    # Substitute translated NPC names (main block: Tom Nook..Tommy at 0x204-0x217).
     translated = _EUR_NPC_NAMES[lang]
     name_start = _NPC_NAME_INDEX_START
     for i, name in enumerate(translated):
@@ -578,6 +609,27 @@ def _translate_npc_names(pack_arc_root: str, lang: str) -> None:
         if idx >= n_entries:
             break
         entries[idx] = encode_ac_str(name)
+
+    # Extra block: Blathers/Mabel/Sable at 0x4e3-0x4e5.
+    if lang in _EUR_NPC_EXTRA:
+        for i, name in enumerate(_EUR_NPC_EXTRA[lang]):
+            idx = _NPC_EXTRA_INDEX_START + i
+            if idx < n_entries:
+                entries[idx] = encode_ac_str(name)
+
+    # Substitute localised day strings (plain cardinals, no English ordinal suffix).
+    if lang in _EUR_DAYS:
+        for i, day_str in enumerate(_EUR_DAYS[lang]):
+            idx = _DAY_INDEX_START + i
+            if idx < n_entries:
+                entries[idx] = encode_ac_str(day_str)
+
+    # Substitute localised month names.
+    if lang in _EUR_MONTHS:
+        for i, month_str in enumerate(_EUR_MONTHS[lang]):
+            idx = _MONTH_INDEX_START + i
+            if idx < n_entries:
+                entries[idx] = encode_ac_str(month_str)
 
     # Re-encode preserving ALL entries.
     new_data  = bytearray()
@@ -601,9 +653,12 @@ def _translate_npc_names(pack_arc_root: str, lang: str) -> None:
     Path(data_path).write_bytes(bytes(new_data))
     Path(table_path).write_bytes(bytes(new_table))
 
-    changed = sum(1 for i, n in enumerate(translated)
-                  if n != _NPC_NAME_USA[i])
-    print(f"  Translated {changed} NPC names for {lang} ({n_entries} total string_data entries preserved).")
+    changed_npc = sum(1 for i, n in enumerate(translated) if n != _NPC_NAME_USA[i])
+    changed_npc += len(_EUR_NPC_EXTRA.get(lang, []))
+    changed_days   = len(_EUR_DAYS.get(lang, []))
+    changed_months = len(_EUR_MONTHS.get(lang, []))
+    print(f"  Translated {changed_npc} NPC names, {changed_days} days, {changed_months} months for {lang}"
+          f" ({n_entries} total string_data entries preserved).")
 
 
 def _extract_eur_select_strings(eur_1st_script_arc: Path, tmp: str) -> list[str]:
