@@ -131,7 +131,7 @@ int graph_dt_60hz_ticks(GAME* game, float* accum) {
     int max_ticks = 4;
 
 #ifdef TARGET_PC
-    if (g_pc_speedhack_enabled) {
+    if (g_pc_fast_forward) {
         max_ticks = (int)PC_SPEEDHACK_MULTIPLIER;
     }
 #endif
@@ -438,7 +438,7 @@ extern void graph_proc(void* arg) {
             }
 
 #ifdef TARGET_PC
-            if (g_pc_speedhack_enabled) {
+            if (g_pc_fast_forward) {
                 dt_num_60fps_frames *= PC_SPEEDHACK_MULTIPLIER;
                 delta_time *= PC_SPEEDHACK_MULTIPLIER;
             }

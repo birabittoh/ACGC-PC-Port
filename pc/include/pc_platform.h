@@ -59,10 +59,12 @@
 #include <dlfcn.h>
 #include <mach-o/dyld.h>
 #else
+#include <signal.h>
 #include <sys/mman.h>
 #include <dlfcn.h>
 #include <elf.h>
 #endif
+#include <setjmp.h>
 
 #ifdef __cplusplus
 extern "C" {

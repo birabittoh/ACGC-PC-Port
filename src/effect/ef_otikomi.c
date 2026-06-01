@@ -91,16 +91,14 @@ static void eOMN_dw(eEC_Effect_c* effect, GAME* game) {
             alpha2 = 100;
             break;
 
-            default:
-                t = 10.0f - effect->lifetime;
-                scale_m = 0.01f;
-                scale_y = 0.0135f;
-                alpha = (int)eEL_CalcAdjust_F(t, 0.0f, 9.0f, 255.0f, 0.0f);
-                alpha2 = (int)eEL_CalcAdjust_F(t, 0.0f, 9.0f, 100.0f, 0.0f);
-                break;
-        }
+        default:
+            timer = 10 - effect->timer;
+            scale_m = 0.01f;
+            scale_y = 0.0135f;
+            alpha = (int)eEC_CLIP->calc_adjust_proc(timer, 0, 9, 255.0f, 0.0f);
+            alpha2 = (int)eEC_CLIP->calc_adjust_proc(timer, 0, 9, 100.0f, 0.0f);
+            break;
     }
-    (void)timer;
 
     _texture_z_light_fog_prim_xlu(game->graph);
 

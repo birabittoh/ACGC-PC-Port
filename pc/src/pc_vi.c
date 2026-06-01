@@ -65,6 +65,8 @@ void VIWaitForRetrace(void) {
                 if (remain_us > 2000) {
                     SDL_Delay(1);
                 }
+                now = SDL_GetPerformanceCounter();
+                elapsed_us = (now - frame_start_time) * 1000000 / perf_freq;
             }
         }
     }

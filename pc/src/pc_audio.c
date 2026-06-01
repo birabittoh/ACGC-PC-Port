@@ -9,6 +9,7 @@
  * so OS preemption of the game thread doesn't cause audio dropouts.
  */
 #include "pc_platform.h"
+#include "pc_settings.h"
 #include "pc_audio_ptr.h"
 #include "jaudio_NES/audiothread.h"
 

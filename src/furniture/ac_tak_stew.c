@@ -9,7 +9,7 @@ static void fTSW_mv(FTR_ACTOR* ftr_actor, ACTOR* my_room_actor, GAME* game, u8* 
     }
 
     if (aFTR_CAN_PLAY_SE(ftr_actor)) {
-        u32 frame = play->game_frame;
+        GAME_PLAY* play = (GAME_PLAY*)game; u32 frame = play->game_frame;
 
         sAdo_OngenPos((uintptr_t)ftr_actor, 0x54, &ftr_actor->position);
 

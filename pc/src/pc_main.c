@@ -226,13 +226,10 @@ void pc_platform_init(void) {
 extern void PADCleanup(void);
 
 static void pc_speedhack_toggle(void) {
-    g_pc_speedhack_enabled = !g_pc_speedhack_enabled;
-    if (g_pc_window != NULL) {
-        SDL_SetWindowTitle(g_pc_window, g_pc_speedhack_enabled ? "Animal Crossing [5x]" : PC_WINDOW_TITLE);
-    }
+    g_pc_fast_forward ^= 1;
 
     if (g_pc_verbose) {
-        printf("[PC] speedhack %s\n", g_pc_speedhack_enabled ? "5x" : "off");
+        printf("[PC] fast-forward %s\n", g_pc_fast_forward ? "on (2x)" : "off");
     }
 }
 
@@ -399,14 +396,14 @@ int main(int argc, char* argv[]) {
             if (i + 1 < argc && argv[i + 1][0] != '-') {
                 int v = atoi(argv[i + 1]);
                 if (v > 0) {
-                    g_pc_frame_limit_override = v;
-                } else if (v == 0) {
-                    g_pc_frame_limit_override = 0;
+                    g_pc_settings.max_fps = v;
+
+
                 }
                 i++;
             }
         } else if (strcmp(argv[i], "--no-framelimit") == 0) {
-            g_pc_frame_limit_override = 0;
+            g_pc_no_framelimit = 1;
         } else if (strcmp(argv[i], "--verbose") == 0 || strcmp(argv[i], "-v") == 0) {
             g_pc_verbose = 1;
         } else if (strcmp(argv[i], "--model-viewer") == 0) {

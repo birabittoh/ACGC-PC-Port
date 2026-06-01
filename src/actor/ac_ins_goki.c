@@ -240,7 +240,7 @@ static void aIGK_avoid(ACTOR* actorx, GAME* game) {
 
     actorx->gravity = grav;
     sAdo_OngenPos((uintptr_t)actorx, NA_SE_26, &actorx->world.position);
-    aIGK_anime_proc(insect);
+    aIGK_anime_proc(insect, game);
 
     if (insect->bg_type == 0) {
         int h_ut_x;
