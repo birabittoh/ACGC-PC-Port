@@ -75,6 +75,7 @@ extern SDL_Window*   g_pc_window;
 extern SDL_GLContext  g_pc_gl_context;
 extern int           g_pc_running;
 extern int           g_pc_verbose;
+extern int           g_pc_game_started; /* set when player confirms Start Game */
 extern int           g_pc_no_framelimit;
 extern int           g_pc_fast_forward;
 extern int           g_pc_time_override;

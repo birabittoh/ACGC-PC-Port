@@ -21,6 +21,7 @@ enum {
     ITEM_TEXTURES,
     ITEM_RESETTI,
     ITEM_NES_ASPECT,
+    ITEM_LANGUAGE,
     ITEM_MASTER_VOLUME,
 };
 
@@ -44,6 +45,7 @@ static const Item tab_video_items[] = {
 static const Item tab_gameplay_items[] = {
     { "Resetti",    ITEM_RESETTI,    0 },
     { "NES aspect", ITEM_NES_ASPECT, 0 },
+    { "Language",   ITEM_LANGUAGE,   0 },
 };
 
 static const Item tab_audio_items[] = {
@@ -78,6 +80,7 @@ static int     s_sel    = -1; /* start on the tab row */
 
 /* Pending edits - only committed to g_pc_settings on Apply. */
 static PCSettings s_pending;
+static char       s_pending_language[32];
 static int        s_pending_dirty = 0;
 
 /* Resolution-change confirmation state. */
@@ -109,11 +112,14 @@ static void recompute_dirty(void) {
         (s_pending.preload_textures != g_pc_settings.preload_textures) ||
         (s_pending.disable_resetti  != g_pc_settings.disable_resetti) ||
         (s_pending.nes_aspect       != g_pc_settings.nes_aspect) ||
-        (s_pending.master_volume    != g_pc_settings.master_volume);
+        (s_pending.master_volume    != g_pc_settings.master_volume) ||
+        (strcmp(s_pending_language, pc_settings_get_language()) != 0);
 }
 
 static void snapshot(void) {
     s_pending = g_pc_settings;
+    strncpy(s_pending_language, pc_settings_get_language(), sizeof(s_pending_language) - 1);
+    s_pending_language[sizeof(s_pending_language) - 1] = '\0';
     s_pending_dirty = 0;
 }
 
@@ -158,6 +164,22 @@ static void item_cycle(int id, int dir) {
         case ITEM_NES_ASPECT:
             s_pending.nes_aspect = !s_pending.nes_aspect;
             break;
+        case ITEM_LANGUAGE: {
+            pc_settings_refresh_available_languages();
+            int n = pc_settings_get_available_languages_count();
+            if (n > 0) {
+                int idx = 0;
+                for (int i = 0; i < n; i++) {
+                    if (strcmp(s_pending_language, pc_settings_get_available_language(i)) == 0) {
+                        idx = i; break;
+                    }
+                }
+                idx = (idx + (dir > 0 ? 1 : n - 1)) % n;
+                strncpy(s_pending_language, pc_settings_get_available_language(idx),
+                        sizeof(s_pending_language) - 1);
+                s_pending_language[sizeof(s_pending_language) - 1] = '\0';
+            }
+        } break;
         case ITEM_MASTER_VOLUME: {
             int v = s_pending.master_volume + (dir > 0 ? 10 : -10);
             if (v < 0)   v = 0;
@@ -203,6 +225,9 @@ static void item_format(int id, char* buf, size_t n) {
         case ITEM_NES_ASPECT:
             snprintf(buf, n, "%s", s_pending.nes_aspect ? "< 4:3 >" : "< Stretch >");
             break;
+        case ITEM_LANGUAGE:
+            snprintf(buf, n, "< %s >", s_pending_language);
+            break;
         case ITEM_MASTER_VOLUME:
             snprintf(buf, n, "< %d%% >", s_pending.master_volume);
             break;
@@ -223,6 +248,7 @@ static int item_changed(int id) {
         case ITEM_TEXTURES:   return s_pending.preload_textures != g_pc_settings.preload_textures;
         case ITEM_RESETTI:    return s_pending.disable_resetti  != g_pc_settings.disable_resetti;
         case ITEM_NES_ASPECT:    return s_pending.nes_aspect    != g_pc_settings.nes_aspect;
+        case ITEM_LANGUAGE:      return strcmp(s_pending_language, pc_settings_get_language()) != 0;
         case ITEM_MASTER_VOLUME: return s_pending.master_volume != g_pc_settings.master_volume;
     }
     return 0;
@@ -289,15 +315,19 @@ static void apply_pending(void) {
 
     int res_changed = (s_pending.window_width  != g_pc_settings.window_width) ||
                       (s_pending.window_height != g_pc_settings.window_height);
+    int lang_changed = strcmp(s_pending_language, pc_settings_get_language()) != 0;
     if (res_changed) {
         s_res_old_w = g_pc_settings.window_width;
         s_res_old_h = g_pc_settings.window_height;
     }
 
     g_pc_settings = s_pending;
+    pc_settings_set_language(s_pending_language);
     pc_settings_apply();
     s_pending_dirty = 0;
     recompute_restart_needed();
+    if (lang_changed && g_pc_game_started)
+        s_pending_restart = 1;
 
     if (res_changed) {
         s_sub = SUB_CONFIRM_RES;

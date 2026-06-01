@@ -279,6 +279,7 @@ static void aAL_game_start_wait(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
      aAL_wipe_end_check(game) == TRUE &&
      mTD_tdemo_button_ok_check()
   ) {
+    g_pc_game_started = 1;
     aAL_setupAction(actor, game, aAL_ACTION_FADE_OUT_START);
   }
 }
@@ -405,6 +406,7 @@ static void aAL_pc_game_start_wait(ANIMAL_LOGO_ACTOR* actor, GAME* game) {
         if (mLd_CheckStartFlag() == TRUE &&
             aAL_wipe_end_check(game) == TRUE &&
             mTD_tdemo_button_ok_check()) {
+          g_pc_game_started = 1;
           aAL_setupAction(actor, game, aAL_ACTION_FADE_OUT_START);
         }
         break;

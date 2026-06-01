@@ -4,6 +4,7 @@
 #include "pc_assets.h"
 #include "pc_gx_internal.h"
 #include "pc_texture_pack.h"
+#include "pc_msg_eur.h"
 #include "jsyswrap.h"
 
 #ifndef _WIN32
@@ -286,9 +287,10 @@ void pc_settings_apply(void) {
 
     if (!g_pc_window) return;
 
-    if (strcmp(g_pc_language, g_last_applied_language) != 0) {
+    if (strcmp(g_pc_language, g_last_applied_language) != 0 && !g_pc_game_started) {
         printf("[Settings] Language changed: %s -> %s. Reloading assets...\n",
                g_last_applied_language, g_pc_language);
+        pc_msg_eur_reset();
         pc_assets_init();
         JW_ReloadArchives();
         pc_gx_texture_cache_invalidate();

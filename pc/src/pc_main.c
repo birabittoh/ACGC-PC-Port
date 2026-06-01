@@ -25,6 +25,7 @@ int           g_pc_running = 1;
 int           g_pc_no_framelimit = 0;
 int           g_pc_fast_forward = 0;
 int           g_pc_verbose = 0;
+int           g_pc_game_started = 0;
 int           g_pc_time_override = -1; /* -1=system clock, 0-23=override hour */
 int           g_pc_min_override = -1; /* -1=system clock, 0-59=override minute */
 int           g_pc_sec_override = -1; /* -1=system clock, 0-59=override second */
