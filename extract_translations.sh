@@ -3,8 +3,8 @@
 #
 # Requires:
 #   - Python 3
-#   - The USA disc:  orig/GAFE01_00/game.ciso
-#   - The EUR disc:  orig/GAFP01_00/game.ciso
+#   - The USA disc:  any .ciso/.iso/.gcm in orig/GAFE01_00/
+#   - The EUR disc:  any .ciso/.iso/.gcm in orig/GAFP01_00/
 #
 # Usage:
 #   ./extract_translations.sh [options] [USA.ciso [EUR.ciso]]
@@ -58,8 +58,17 @@ for arg in "$@"; do
     esac
 done
 
-USA_CISO="${POSITIONAL[0]:-orig/GAFE01_00/game.ciso}"
-EUR_CISO="${POSITIONAL[1]:-orig/GAFP01_00/game.ciso}"
+find_disc() {
+    local dir="$1"
+    for ext in ciso iso gcm; do
+        local found
+        found="$(find "$dir" -maxdepth 1 -name "*.${ext}" 2>/dev/null | head -1)"
+        [ -n "$found" ] && echo "$found" && return
+    done
+}
+
+USA_CISO="${POSITIONAL[0]:-$(find_disc orig/GAFE01_00)}"
+EUR_CISO="${POSITIONAL[1]:-$(find_disc orig/GAFP01_00)}"
 
 # ── Check Python ──────────────────────────────────────────────────────────────
 PYTHON="${PYTHON:-python3}"
@@ -82,8 +91,8 @@ fi
 "$DTK" --version > /dev/null || die "dtk not working at: $DTK"
 
 # ── Validate disc images ──────────────────────────────────────────────────────
-[ -f "$USA_CISO" ] || die "USA disc not found: $USA_CISO\n       Place GAFE01 (USA) at orig/GAFE01_00/game.ciso or pass it as the first argument."
-[ -f "$EUR_CISO" ] || die "EUR disc not found: $EUR_CISO\n       Place GAFP01 (EUR) at orig/GAFP01_00/game.ciso or pass it as the second argument."
+[ -n "$USA_CISO" ] && [ -f "$USA_CISO" ] || die "USA disc not found in orig/GAFE01_00/\n       Place a GAFE01 (USA) disc image (.ciso/.iso/.gcm) there, or pass it as the first argument."
+[ -n "$EUR_CISO" ] && [ -f "$EUR_CISO" ] || die "EUR disc not found in orig/GAFP01_00/\n       Place a GAFP01 (EUR) disc image (.ciso/.iso/.gcm) there, or pass it as the second argument."
 
 USA_ID=$("$DTK" disc info "$USA_CISO" 2>/dev/null | grep "Game ID" | grep -o 'GAFE[0-9][0-9]' || true)
 EUR_ID=$("$DTK" disc info "$EUR_CISO" 2>/dev/null | grep "Game ID" | grep -o 'GAFP[0-9][0-9]' || true)
